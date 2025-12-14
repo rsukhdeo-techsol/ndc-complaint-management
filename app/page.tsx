@@ -4,9 +4,9 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Complaint } from '@/types';
 import { getComplaints } from '@/lib/services';
 import { ComplaintsTable } from '@/components/ComplaintsTable';
+import { ComplaintDetailPanel } from '@/components/ComplaintDetailPanel';
 import { AppShell } from '@/components/app-shell';
 import { Button } from '@/components/ui/button';
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from '@/components/ui/sheet';
 import { NewComplaintDialog } from '@/components/NewComplaintDialog';
 import { AlertCircle, CheckCircle, Clock, FileText, Plus, Filter, List, LayoutGrid } from 'lucide-react';
 
@@ -116,28 +116,21 @@ export default function Home() {
         />
       </div>
 
-      {/* Detail Sheet */}
-      <Sheet
+      {/* Complaint Detail Panel */}
+      <ComplaintDetailPanel
+        complaint={selectedComplaint}
         open={!!selectedComplaint}
-        onOpenChange={(open) => {
-          if (!open) setSelectedComplaint(null);
+        onClose={() => setSelectedComplaint(null)}
+        onUpdate={async () => {
+          await refreshComplaints();
+          // Refresh the selected complaint data
+          if (selectedComplaint) {
+            const updated = await getComplaints();
+            const refreshed = updated.find(c => c.id === selectedComplaint.id);
+            if (refreshed) setSelectedComplaint(refreshed);
+          }
         }}
-      >
-        <SheetContent className="w-[400px] sm:w-[540px]">
-          <SheetHeader>
-            <SheetTitle className="font-mono text-blue-600">
-              {selectedComplaint?.referenceNumber}
-            </SheetTitle>
-          </SheetHeader>
-          <div className="mt-6">
-            <h3 className="text-lg font-semibold">{selectedComplaint?.title}</h3>
-            <p className="mt-2 text-muted-foreground">{selectedComplaint?.description}</p>
-            <p className="mt-4 text-sm text-muted-foreground">
-              Details + timeline will go here next.
-            </p>
-          </div>
-        </SheetContent>
-      </Sheet>
+      />
     </AppShell>
   );
 }
