@@ -151,6 +151,7 @@ export interface Complaint {
   status: ComplaintStatus;
   priority?: Priority;
   assignedTo?: string;
+  commentCount?: number;  // Number of comments on this complaint
 
   // Timestamps
   createdAt: Timestamp;
@@ -228,6 +229,8 @@ export interface UpdateComplaintInput {
   location?: string;
   priority?: Priority;
   assignedTo?: string;
+  dueDate?: Timestamp | null;
+  closedAt?: Timestamp | null;
 }
 
 /**

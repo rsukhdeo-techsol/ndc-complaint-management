@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
+import { Timestamp } from 'firebase/firestore';
 import type { Complaint, ComplaintStatus, Priority, TimelineEntry } from '@/types';
 import { STATUS_LABELS, PRIORITY_LABELS, SOURCE_LABELS, CATEGORY_LABELS } from '@/types';
 import { formatDate } from '@/lib/utils';
-import { updateComplaint, getTimeline, addComment } from '@/lib/services';
+import { updateComplaint, getTimeline, addComment, uploadAttachment, addAttachment } from '@/lib/services';
 
 import Lightbox from 'yet-another-react-lightbox';
 import 'yet-another-react-lightbox/styles.css';
@@ -14,6 +15,12 @@ import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
+import { DatePickerPopover } from '@/components/DatePickerPopover';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
@@ -23,6 +30,7 @@ import {
 import {
   X,
   Calendar,
+  CalendarCheck,
   Phone,
   MapPin,
   User,
@@ -32,6 +40,8 @@ import {
   Paperclip,
   Send,
   ChevronRight,
+  Upload,
+  Loader2,
 } from 'lucide-react';
 
 interface ComplaintDetailPanelProps {
@@ -191,6 +201,9 @@ export function ComplaintDetailPanel({
   const [isLoadingTimeline, setIsLoadingTimeline] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Load timeline when complaint changes
   useEffect(() => {
@@ -229,6 +242,34 @@ export function ComplaintDetailPanel({
     }
   };
 
+  const handleDueDateChange = async (date: Date | undefined) => {
+    setIsUpdating(true);
+    try {
+      await updateComplaint(complaint.id, { 
+        dueDate: date ? Timestamp.fromDate(date) : null 
+      });
+      onUpdate?.();
+    } catch (error) {
+      console.error('Error updating due date:', error);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
+  const handleClosedAtChange = async (date: Date | undefined) => {
+    setIsUpdating(true);
+    try {
+      await updateComplaint(complaint.id, { 
+        closedAt: date ? Timestamp.fromDate(date) : null 
+      });
+      onUpdate?.();
+    } catch (error) {
+      console.error('Error updating closed date:', error);
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const handleAddComment = async () => {
     if (!comment.trim()) return;
     try {
@@ -243,6 +284,55 @@ export function ComplaintDetailPanel({
     } catch (error) {
       console.error('Error adding comment:', error);
     }
+  };
+
+  const handleFileUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0 || !complaint) return;
+    
+    setIsUploading(true);
+    try {
+      for (const file of Array.from(files)) {
+        // Upload to Firebase Storage
+        const attachmentData = await uploadAttachment(complaint.id, file);
+        
+        // Add to timeline
+        await addAttachment(complaint.id, {
+          attachment: attachmentData,
+          createdBy: 'current-user', // TODO: Get from auth
+        });
+      }
+      
+      // Refresh timeline and complaint data
+      const newTimeline = await getTimeline(complaint.id);
+      setTimeline(newTimeline);
+      onUpdate?.(); // Refresh complaint to get updated attachments
+    } catch (error) {
+      console.error('Error uploading file:', error);
+    } finally {
+      setIsUploading(false);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    handleFileUpload(e.dataTransfer.files);
   };
 
   const getTimelineAction = (entry: TimelineEntry): string => {
@@ -358,22 +448,75 @@ export function ComplaintDetailPanel({
                     <FieldRow icon={Clock} label="Created">
                       {formatDate(complaint.createdAt.toDate())}
                     </FieldRow>
-                    {complaint.dueDate && (
-                      <FieldRow icon={Calendar} label="Due Date">
-                        {formatDate(complaint.dueDate.toDate())}
-                      </FieldRow>
-                    )}
+                    
+                    {/* Due Date with Calendar Picker */}
+                    <div className="flex items-center gap-3 py-2.5 border-b border-border/50">
+                      <div className="flex items-center gap-2 w-36 text-muted-foreground">
+                        <Calendar className="h-4 w-4" />
+                        <span className="text-sm">Due Date</span>
+                      </div>
+                      <div className="flex-1 text-sm">
+                        <DatePickerPopover
+                          value={complaint.dueDate?.toDate()}
+                          onChange={handleDueDateChange}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Date Closed with Calendar Picker */}
+                    <div className="flex items-center gap-3 py-2.5 border-b border-border/50 last:border-0">
+                      <div className="flex items-center gap-2 w-36 text-muted-foreground">
+                        <CalendarCheck className="h-4 w-4" />
+                        <span className="text-sm">Date Closed</span>
+                      </div>
+                      <div className="flex-1 text-sm">
+                        <DatePickerPopover
+                          value={complaint.closedAt?.toDate()}
+                          onChange={handleClosedAtChange}
+                        />
+                      </div>
+                    </div>
                   </div>
                 </TabsContent>
 
                 <TabsContent value="attachments" className="mt-0">
+                  {/* Hidden file input */}
+                  <input
+                    type="file"
+                    ref={fileInputRef}
+                    className="hidden"
+                    multiple
+                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                    onChange={(e) => handleFileUpload(e.target.files)}
+                  />
+                  
+                  {/* Drop zone */}
+                  <div
+                    onDragOver={handleDragOver}
+                    onDragLeave={handleDragLeave}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className={`mb-4 border-2 border-dashed rounded-lg p-4 text-center text-sm cursor-pointer transition-colors ${
+                      isDragging 
+                        ? 'border-primary bg-primary/5 text-primary' 
+                        : 'border-border/50 text-muted-foreground hover:border-primary/50 hover:bg-muted/50'
+                    }`}
+                  >
+                    {isUploading ? (
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span>Uploading...</span>
+                      </div>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2">
+                        <Upload className="h-4 w-4" />
+                        <span>Drop files here or <span className="text-primary underline">browse</span></span>
+                      </div>
+                    )}
+                  </div>
+
                   {complaint.attachments && complaint.attachments.length > 0 ? (
                     <>
-                      {/* Drop zone placeholder */}
-                      <div className="mb-4 border-2 border-dashed border-border/50 rounded-lg p-4 text-center text-muted-foreground text-sm">
-                        Drop your files here to <button className="text-primary underline">upload</button>
-                      </div>
-                      
                       {/* Image grid */}
                       <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                         {complaint.attachments.map((attachment, idx) => {
@@ -426,9 +569,29 @@ export function ComplaintDetailPanel({
                       />
                     </>
                   ) : (
-                    <div className="text-center py-12 text-muted-foreground">
-                      <Paperclip className="h-10 w-10 mx-auto mb-3 opacity-40" />
-                      <p className="text-sm">No attachments</p>
+                    <div 
+                      onDragOver={handleDragOver}
+                      onDragLeave={handleDragLeave}
+                      onDrop={handleDrop}
+                      onClick={() => fileInputRef.current?.click()}
+                      className={`text-center py-12 cursor-pointer rounded-lg transition-colors ${
+                        isDragging 
+                          ? 'bg-primary/5 text-primary' 
+                          : 'text-muted-foreground hover:bg-muted/50'
+                      }`}
+                    >
+                      {isUploading ? (
+                        <>
+                          <Loader2 className="h-10 w-10 mx-auto mb-3 animate-spin" />
+                          <p className="text-sm">Uploading...</p>
+                        </>
+                      ) : (
+                        <>
+                          <Upload className="h-10 w-10 mx-auto mb-3 opacity-40" />
+                          <p className="text-sm">No attachments yet</p>
+                          <p className="text-xs mt-1">Drop files here or click to upload</p>
+                        </>
+                      )}
                     </div>
                   )}
                 </TabsContent>

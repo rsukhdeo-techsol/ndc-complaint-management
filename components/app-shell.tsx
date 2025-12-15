@@ -7,13 +7,18 @@ import { AppHeader } from '@/components/app-header';
 import { AppSidebar } from '@/components/app-sidebar';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 
-export function AppShell({ children }: { children: ReactNode }) {
+interface AppShellProps {
+  children: ReactNode;
+  onNavigate?: () => void;
+}
+
+export function AppShell({ children, onNavigate }: AppShellProps) {
   const [open, setOpen] = useState(false);
 
   return (
     <div className="flex min-h-screen bg-background">
       <aside className="hidden w-64 shrink-0 border-r bg-sidebar text-sidebar-foreground md:flex">
-        <AppSidebar />
+        <AppSidebar onNavigate={onNavigate} />
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -21,7 +26,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <Sheet open={open} onOpenChange={setOpen}>
             <AppHeader onOpenSidebar={() => setOpen(true)} />
             <SheetContent side="left" className="w-72 bg-sidebar p-0 text-sidebar-foreground">
-              <AppSidebar />
+              <AppSidebar onNavigate={() => { setOpen(false); onNavigate?.(); }} />
             </SheetContent>
           </Sheet>
         </div>

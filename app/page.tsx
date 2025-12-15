@@ -49,7 +49,7 @@ export default function Home() {
   }, [complaints]);
 
   return (
-    <AppShell>
+    <AppShell onNavigate={() => setSelectedComplaint(null)}>
       {/* Toolbar */}
       <div className="mb-4 flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -111,6 +111,7 @@ export default function Home() {
         <ComplaintsTable
           complaints={complaints}
           onRowClick={setSelectedComplaint}
+          onUpdate={refreshComplaints}
           selectedId={selectedComplaint?.id}
           isLoading={isLoading}
         />

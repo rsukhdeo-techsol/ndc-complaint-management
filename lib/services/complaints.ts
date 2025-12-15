@@ -14,6 +14,7 @@ import {
   writeBatch,
   runTransaction,
   QueryConstraint,
+  increment,
 } from 'firebase/firestore';
 import { db, COLLECTIONS } from '../firebase';
 import {
@@ -328,9 +329,10 @@ export async function addComment(
   const complaintRef = doc(db, COLLECTIONS.COMPLAINTS, complaintId);
   const now = Timestamp.now();
   
-  // Update complaint's updatedAt
+  // Update complaint's updatedAt and increment comment count
   await updateDoc(complaintRef, {
     updatedAt: now,
+    commentCount: increment(1),
   });
   
   // Add timeline entry
@@ -397,5 +399,18 @@ export async function deleteTimelineEntry(
     timelineId
   );
   
+  // Get the entry first to check if it's a comment
+  const entrySnap = await getDoc(timelineRef);
+  const entryData = entrySnap.data();
+  
+  // Delete the timeline entry
   await deleteDoc(timelineRef);
+  
+  // If it was a comment, decrement the comment count
+  if (entryData?.type === 'comment') {
+    const complaintRef = doc(db, COLLECTIONS.COMPLAINTS, complaintId);
+    await updateDoc(complaintRef, {
+      commentCount: increment(-1),
+    });
+  }
 }
