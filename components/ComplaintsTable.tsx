@@ -1,8 +1,7 @@
 'use client';
 
-import { useState } from 'react';
 import { Timestamp } from 'firebase/firestore';
-import { Complaint, ComplaintStatus, Priority, SOURCE_LABELS, STATUS_LABELS, PRIORITY_LABELS } from '@/types';
+import { Complaint, Priority, SOURCE_LABELS } from '@/types';
 import { cn, formatDate } from '@/lib/utils';
 import { updateComplaint } from '@/lib/services';
 import {
@@ -13,14 +12,9 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from '@/components/ui/select';
+import { StatusSelect, PrioritySelect, EditableCell } from '@/components/editable';
 import { DatePickerPopover } from '@/components/DatePickerPopover';
-import { FileText, Loader2, MessageSquare, Image, ChevronDown } from 'lucide-react';
+import { FileText, Loader2, MessageSquare, Image } from 'lucide-react';
 
 interface ComplaintsTableProps {
   complaints: Complaint[];
@@ -30,26 +24,6 @@ interface ComplaintsTableProps {
   isLoading?: boolean;
 }
 
-// Status colors for inline display
-const statusColors: Record<ComplaintStatus, string> = {
-  submitted: 'bg-gray-500',
-  acknowledged: 'bg-blue-500',
-  under_review: 'bg-purple-500',
-  assigned: 'bg-indigo-500',
-  in_progress: 'bg-yellow-500',
-  pending_external_action: 'bg-orange-500',
-  resolved: 'bg-green-500',
-  closed: 'bg-gray-400',
-};
-
-// Priority colors for inline display
-const priorityColors: Record<Priority, string> = {
-  low: 'bg-gray-400 text-white',
-  medium: 'bg-blue-500 text-white',
-  high: 'bg-orange-500 text-white',
-  urgent: 'bg-red-500 text-white',
-};
-
 export function ComplaintsTable({
   complaints,
   onRowClick,
@@ -57,58 +31,29 @@ export function ComplaintsTable({
   selectedId,
   isLoading,
 }: ComplaintsTableProps) {
-  const [updatingId, setUpdatingId] = useState<string | null>(null);
-
-  const handleStatusChange = async (complaintId: string, newStatus: ComplaintStatus) => {
-    setUpdatingId(complaintId);
-    try {
-      await updateComplaint(complaintId, { status: newStatus } as any);
-      onUpdate?.();
-    } catch (error) {
-      console.error('Error updating status:', error);
-    } finally {
-      setUpdatingId(null);
-    }
+  // Handler factories for each editable field
+  const handleStatusChange = async (complaintId: string, newStatusId: string) => {
+    await updateComplaint(complaintId, { status: newStatusId } as any);
+    onUpdate?.();
   };
 
   const handlePriorityChange = async (complaintId: string, newPriority: Priority) => {
-    setUpdatingId(complaintId);
-    try {
-      await updateComplaint(complaintId, { priority: newPriority });
-      onUpdate?.();
-    } catch (error) {
-      console.error('Error updating priority:', error);
-    } finally {
-      setUpdatingId(null);
-    }
+    await updateComplaint(complaintId, { priority: newPriority });
+    onUpdate?.();
   };
 
   const handleDueDateChange = async (complaintId: string, date: Date | undefined) => {
-    setUpdatingId(complaintId);
-    try {
-      await updateComplaint(complaintId, { 
-        dueDate: date ? Timestamp.fromDate(date) : null 
-      });
-      onUpdate?.();
-    } catch (error) {
-      console.error('Error updating due date:', error);
-    } finally {
-      setUpdatingId(null);
-    }
+    await updateComplaint(complaintId, { 
+      dueDate: date ? Timestamp.fromDate(date) : null 
+    });
+    onUpdate?.();
   };
 
   const handleClosedAtChange = async (complaintId: string, date: Date | undefined) => {
-    setUpdatingId(complaintId);
-    try {
-      await updateComplaint(complaintId, { 
-        closedAt: date ? Timestamp.fromDate(date) : null 
-      });
-      onUpdate?.();
-    } catch (error) {
-      console.error('Error updating closed date:', error);
-    } finally {
-      setUpdatingId(null);
-    }
+    await updateComplaint(complaintId, { 
+      closedAt: date ? Timestamp.fromDate(date) : null 
+    });
+    onUpdate?.();
   };
 
   if (isLoading) {
@@ -137,8 +82,7 @@ export function ComplaintsTable({
       <Table className="border-collapse">
         <TableHeader>
           <TableRow className="hover:bg-transparent border-b">
-            <TableHead className="w-[130px] text-xs border-r">Complaint #</TableHead>
-            <TableHead className="w-[150px] text-xs border-r">Complainant</TableHead>
+            <TableHead className="w-[180px] text-xs border-r">Complainant</TableHead>
             <TableHead className="w-[90px] text-xs border-r">Method</TableHead>
             <TableHead className="w-[100px] text-xs border-r">Date created</TableHead>
             <TableHead className="w-[120px] text-xs border-r">Status</TableHead>
@@ -159,19 +103,14 @@ export function ComplaintsTable({
                 selectedId === complaint.id && 'bg-accent'
               )}
             >
-              {/* Complaint # - clickable to open panel */}
+              {/* Complainant - clickable to open panel */}
               <TableCell className="border-r">
                 <button
                   onClick={() => onRowClick(complaint)}
-                  className="font-mono text-sm text-blue-500 hover:text-blue-700 hover:underline"
+                  className="font-medium text-sm text-blue-500 hover:text-blue-700 hover:underline cursor-pointer"
                 >
-                  {complaint.referenceNumber}
+                  {complaint.complainantName}
                 </button>
-              </TableCell>
-
-              {/* Complainant - read only for now */}
-              <TableCell className="font-medium text-sm border-r">
-                {complaint.complainantName}
               </TableCell>
 
               {/* Method/Source - read only */}
@@ -186,63 +125,38 @@ export function ComplaintsTable({
                 {formatDate(complaint.createdAt.toDate())}
               </TableCell>
 
-              {/* Status - inline dropdown */}
+              {/* Status - editable */}
               <TableCell className="border-r p-1">
-                <Select 
-                  value={complaint.status} 
-                  onValueChange={(value) => handleStatusChange(complaint.id, value as ComplaintStatus)}
-                  disabled={updatingId === complaint.id}
+                <EditableCell<string>
+                  value={complaint.status}
+                  onSave={(status) => handleStatusChange(complaint.id, status)}
                 >
-                  <SelectTrigger className="h-7 w-full border-0 bg-transparent p-0 px-1 focus:ring-0">
-                    <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium text-white ${statusColors[complaint.status]}`}>
-                      {STATUS_LABELS[complaint.status]}
-                      <ChevronDown className="h-3 w-3" />
-                    </span>
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(STATUS_LABELS).map(([key, label]) => (
-                      <SelectItem key={key} value={key}>
-                        <span className="inline-flex items-center gap-2">
-                          <span className={`h-2 w-2 rounded-full ${statusColors[key as ComplaintStatus]}`} />
-                          {label}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  {({ value, onChange, disabled }) => (
+                    <StatusSelect
+                      value={value}
+                      onChange={onChange}
+                      disabled={disabled}
+                      variant="compact"
+                    />
+                  )}
+                </EditableCell>
               </TableCell>
 
-              {/* Priority - inline dropdown */}
+              {/* Priority - editable */}
               <TableCell className="border-r p-1">
-                <Select 
-                  value={complaint.priority || ''} 
-                  onValueChange={(value) => handlePriorityChange(complaint.id, value as Priority)}
-                  disabled={updatingId === complaint.id}
+                <EditableCell
+                  value={complaint.priority}
+                  onSave={(priority) => handlePriorityChange(complaint.id, priority!)}
                 >
-                  <SelectTrigger className="h-7 w-full border-0 bg-transparent p-0 px-1 focus:ring-0">
-                    {complaint.priority ? (
-                      <span className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-xs font-medium ${priorityColors[complaint.priority]}`}>
-                        {PRIORITY_LABELS[complaint.priority]}
-                        <ChevronDown className="h-3 w-3" />
-                      </span>
-                    ) : (
-                      <span className="text-xs text-muted-foreground flex items-center gap-1">
-                        Set...
-                        <ChevronDown className="h-3 w-3" />
-                      </span>
-                    )}
-                  </SelectTrigger>
-                  <SelectContent>
-                    {Object.entries(PRIORITY_LABELS).map(([key, label]) => (
-                      <SelectItem key={key} value={key}>
-                        <span className="inline-flex items-center gap-2">
-                          <span className={`h-2 w-2 rounded-full ${priorityColors[key as Priority].split(' ')[0]}`} />
-                          {label}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                  {({ value, onChange, disabled }) => (
+                    <PrioritySelect
+                      value={value}
+                      onChange={onChange}
+                      disabled={disabled}
+                      variant="compact"
+                    />
+                  )}
+                </EditableCell>
               </TableCell>
 
               {/* Comments - read only */}
@@ -258,21 +172,19 @@ export function ComplaintsTable({
                 {complaint.complainantPhone || '—'}
               </TableCell>
 
-              {/* Date closed - inline date picker */}
+              {/* Date closed - editable */}
               <TableCell className="border-r p-1">
                 <DatePickerPopover
                   value={complaint.closedAt?.toDate()}
                   onChange={(date) => handleClosedAtChange(complaint.id, date)}
-                  disabled={updatingId === complaint.id}
                 />
               </TableCell>
 
-              {/* Due Date - inline date picker */}
+              {/* Due Date - editable */}
               <TableCell className="border-r p-1">
                 <DatePickerPopover
                   value={complaint.dueDate?.toDate()}
                   onChange={(date) => handleDueDateChange(complaint.id, date)}
-                  disabled={updatingId === complaint.id}
                 />
               </TableCell>
 

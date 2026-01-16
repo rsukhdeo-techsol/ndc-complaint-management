@@ -27,8 +27,15 @@ import {
   StatusChangeInput,
   AssignmentInput,
   AddAttachmentInput,
+  STATUS_LABELS,
 } from '@/types';
 import { generateReferenceNumber } from '../utils';
+import {
+  notifyNewComplaint,
+  notifyStatusChange,
+  notifyAssignment,
+  notifyComment,
+} from './notifications';
 
 // ============================================
 // COMPLAINT CRUD OPERATIONS
@@ -382,6 +389,33 @@ export async function addAttachment(
     id: docRef.id,
     ...timelineEntry,
   } as TimelineEntry;
+}
+
+/**
+ * Update a comment
+ */
+export async function updateComment(
+  complaintId: string,
+  timelineId: string,
+  newContent: string
+): Promise<void> {
+  const timelineRef = doc(
+    db,
+    COLLECTIONS.COMPLAINTS,
+    complaintId,
+    COLLECTIONS.TIMELINE,
+    timelineId
+  );
+  
+  await updateDoc(timelineRef, {
+    content: newContent,
+  });
+  
+  // Update complaint's updatedAt
+  const complaintRef = doc(db, COLLECTIONS.COMPLAINTS, complaintId);
+  await updateDoc(complaintRef, {
+    updatedAt: Timestamp.now(),
+  });
 }
 
 /**

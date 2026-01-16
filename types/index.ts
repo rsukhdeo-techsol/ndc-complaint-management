@@ -148,7 +148,7 @@ export interface Complaint {
   source: ComplaintSource;
 
   // Status & workflow
-  status: ComplaintStatus;
+  status: ComplaintStatus | string; // Can be legacy status or custom status ID
   priority?: Priority;
   assignedTo?: string;
   commentCount?: number;  // Number of comments on this complaint
@@ -176,8 +176,8 @@ export interface TimelineEntry {
   content?: string;
 
   // For status changes
-  previousStatus?: ComplaintStatus;
-  newStatus?: ComplaintStatus;
+  previousStatus?: ComplaintStatus | string;
+  newStatus?: ComplaintStatus | string;
   statusNote?: string;
 
   // For attachments
@@ -265,3 +265,86 @@ export interface AddAttachmentInput {
   attachment: AttachmentData;
   createdBy: string;
 }
+
+// ============================================
+// NOTIFICATIONS / INBOX
+// ============================================
+
+/**
+ * Notification types
+ */
+export type NotificationType =
+  | 'new_complaint'
+  | 'assignment'
+  | 'comment'
+  | 'mention'
+  | 'status_change'
+  | 'due_date_reminder'
+  | 'overdue_alert'
+  | 'follow_up_reminder';
+
+export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
+  new_complaint: 'New Complaint',
+  assignment: 'Assignment',
+  comment: 'Comment',
+  mention: 'Mention',
+  status_change: 'Status Change',
+  due_date_reminder: 'Due Date Reminder',
+  overdue_alert: 'Overdue Alert',
+  follow_up_reminder: 'Follow-up Reminder',
+};
+
+export const NOTIFICATION_TYPE_ICONS: Record<NotificationType, string> = {
+  new_complaint: 'file-plus',
+  assignment: 'user-plus',
+  comment: 'message-square',
+  mention: 'at-sign',
+  status_change: 'refresh-cw',
+  due_date_reminder: 'clock',
+  overdue_alert: 'alert-triangle',
+  follow_up_reminder: 'bell',
+};
+
+/**
+ * Notification document
+ * Collection: notifications/{notificationId}
+ */
+export interface Notification {
+  id: string;
+  recipientId: string;          // User who receives the notification
+  type: NotificationType;
+  title: string;
+  message: string;
+  
+  // Related entities
+  complaintId?: string;
+  complaintRef?: string;        // Reference number for display
+  
+  // State
+  isRead: boolean;
+  readAt?: Timestamp;
+  
+  // Metadata
+  actorId?: string;             // User who triggered the notification
+  actorName?: string;           // Display name of actor
+  
+  // Timestamps
+  createdAt: Timestamp;
+}
+
+/**
+ * Data required to create a notification
+ */
+export interface CreateNotificationInput {
+  recipientId: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  complaintId?: string;
+  complaintRef?: string;
+  actorId?: string;
+  actorName?: string;
+}
+
+// Re-export status types
+export * from './status';

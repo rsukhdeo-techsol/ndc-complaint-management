@@ -124,7 +124,7 @@ export function DatePickerPopover({
                 <span className="text-sm font-medium">{format(value, 'd/M/yy')}</span>
                 <button
                   onClick={() => onChange(undefined)}
-                  className="ml-1 rounded-full p-0.5 hover:bg-muted"
+                  className="ml-1 rounded-full p-0.5 hover:bg-muted cursor-pointer"
                 >
                   <X className="h-3 w-3 text-muted-foreground" />
                 </button>
@@ -139,7 +139,7 @@ export function DatePickerPopover({
                 <button
                   key={option.label}
                   onClick={() => handleQuickSelect(option)}
-                  className="w-full flex items-center justify-between px-3 py-1.5 text-sm hover:bg-muted transition-colors"
+                  className="w-full flex items-center justify-between px-3 py-1.5 text-sm hover:bg-muted transition-colors cursor-pointer"
                 >
                   <span>{option.label}</span>
                   <span className="text-xs text-muted-foreground">{option.sublabel}</span>

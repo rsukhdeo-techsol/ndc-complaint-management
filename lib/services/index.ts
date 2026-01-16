@@ -9,6 +9,7 @@ export {
   assignComplaint,
   getTimeline,
   addComment,
+  updateComment,
   addAttachment,
   deleteTimelineEntry,
 } from './complaints';
@@ -19,3 +20,32 @@ export {
   deleteAttachment,
   deleteAllAttachments,
 } from './storage';
+
+// Notification services
+export {
+  createNotification,
+  getNotification,
+  getNotifications,
+  getUnreadNotificationCount,
+  markNotificationAsRead,
+  markAllNotificationsAsRead,
+  deleteNotification,
+  clearAllNotifications,
+  notifyNewComplaint,
+  notifyAssignment,
+  notifyComment,
+  notifyStatusChange,
+  notifyDueDateReminder,
+  notifyOverdue,
+  notifyMention,
+} from './notifications';
+
+// Status configuration services
+export {
+  getStatusConfig,
+  saveStatusConfig,
+  addStatus,
+  updateStatus,
+  deleteStatus,
+  reorderStatuses,
+} from './statusConfig';

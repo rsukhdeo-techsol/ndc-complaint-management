@@ -1,12 +1,34 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { PanelLeft, Bell, HelpCircle } from 'lucide-react';
 
+import { getUnreadNotificationCount } from '@/lib/services';
 import { Button } from '@/components/ui/button';
 import { ThemeToggle } from '@/components/theme-toggle';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 export function AppHeader({ onOpenSidebar }: { onOpenSidebar?: () => void }) {
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    async function loadUnreadCount() {
+      try {
+        const count = await getUnreadNotificationCount();
+        setUnreadCount(count);
+      } catch (error) {
+        console.error('Error loading unread count:', error);
+      }
+    }
+
+    loadUnreadCount();
+    
+    // Poll for new notifications every 30 seconds
+    const interval = setInterval(loadUnreadCount, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <header className="sticky top-0 z-20 flex h-12 items-center gap-2 border-b bg-background px-4">
       <Button
@@ -32,11 +54,15 @@ export function AppHeader({ onOpenSidebar }: { onOpenSidebar?: () => void }) {
         <Button variant="ghost" size="icon" className="h-8 w-8">
           <HelpCircle className="h-4 w-4" />
         </Button>
-        <Button variant="ghost" size="icon" className="h-8 w-8 relative">
-          <Bell className="h-4 w-4" />
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-medium text-white">
-            2
-          </span>
+        <Button variant="ghost" size="icon" className="h-8 w-8 relative" asChild>
+          <Link href="/inbox">
+            <Bell className="h-4 w-4" />
+            {unreadCount > 0 && (
+              <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-medium text-white">
+                {unreadCount > 99 ? '99+' : unreadCount}
+              </span>
+            )}
+          </Link>
         </Button>
         <ThemeToggle />
         <Avatar className="h-7 w-7 ml-1">

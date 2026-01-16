@@ -1,28 +1,33 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  Home,
-  Inbox,
   FileText,
-  Settings,
-  Users,
-  Calendar,
   BarChart3,
   ChevronDown,
-  Search,
+  MoreHorizontal,
+  CircleDot,
+  Palette,
+  Copy,
+  Pencil,
 } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Button } from '@/components/ui/button';
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from '@/components/ui/popover';
+import { StatusManagerDialog } from '@/components/StatusManagerDialog';
 
 type NavItem = {
   href: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  badge?: number;
+  hasMenu?: boolean;
 };
 
 interface AppSidebarProps {
@@ -30,46 +35,102 @@ interface AppSidebarProps {
 }
 
 const mainNav: NavItem[] = [
-  { href: '/home', label: 'Home', icon: Home },
-  { href: '/', label: 'All Complaints', icon: FileText },
-  { href: '/inbox', label: 'Inbox', icon: Inbox, badge: 3 },
+  { href: '/', label: 'Complaints', icon: FileText, hasMenu: true },
   { href: '/reports', label: 'Reports', icon: BarChart3 },
-  { href: '/calendar', label: 'Calendar', icon: Calendar },
-  { href: '/team', label: 'Team', icon: Users },
 ];
 
-function NavLink({ item, onClick }: { item: NavItem; onClick?: () => void }) {
+function NavLink({ 
+  item, 
+  onClick,
+  onOpenStatusManager,
+}: { 
+  item: NavItem; 
+  onClick?: () => void;
+  onOpenStatusManager?: () => void;
+}) {
   const pathname = usePathname();
   const isActive = pathname === item.href || (item.href !== '/' && pathname?.startsWith(item.href));
   const Icon = item.icon;
+  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <Link
-      href={item.href}
-      onClick={onClick}
-      className={cn(
-        'group flex items-center gap-3 rounded-lg px-3 py-1.5 text-sm transition-colors',
-        'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-        isActive && 'bg-accent text-accent-foreground'
+    <div className="group relative flex items-center">
+      <Link
+        href={item.href}
+        onClick={onClick}
+        className={cn(
+          'flex-1 flex items-center gap-3 rounded-lg px-3 py-1.5 text-sm transition-colors',
+          'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+          isActive && 'bg-accent text-accent-foreground'
+        )}
+      >
+        <Icon className="h-4 w-4 flex-shrink-0" />
+        <span className="truncate flex-1">{item.label}</span>
+      </Link>
+      
+      {/* 3-dot menu for items with hasMenu */}
+      {item.hasMenu && (
+        <Popover open={menuOpen} onOpenChange={setMenuOpen}>
+          <PopoverTrigger asChild>
+            <button
+              className={cn(
+                'absolute right-1 p-1 rounded hover:bg-accent text-muted-foreground hover:text-accent-foreground transition-all cursor-pointer',
+                menuOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+              )}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-48 p-1" align="start" side="right">
+            <div className="space-y-0.5">
+              <button
+                onClick={() => {
+                  setMenuOpen(false);
+                  onOpenStatusManager?.();
+                }}
+                className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded hover:bg-accent cursor-pointer"
+              >
+                <CircleDot className="h-4 w-4 text-muted-foreground" />
+                <span>Task statuses</span>
+              </button>
+              <button
+                className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded hover:bg-accent cursor-pointer text-muted-foreground"
+                disabled
+              >
+                <Pencil className="h-4 w-4" />
+                <span>Rename</span>
+              </button>
+              <button
+                className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded hover:bg-accent cursor-pointer text-muted-foreground"
+                disabled
+              >
+                <Copy className="h-4 w-4" />
+                <span>Copy link</span>
+              </button>
+              <button
+                className="w-full flex items-center gap-2 px-2 py-1.5 text-sm rounded hover:bg-accent cursor-pointer text-muted-foreground"
+                disabled
+              >
+                <Palette className="h-4 w-4" />
+                <span>Color & Icon</span>
+              </button>
+            </div>
+          </PopoverContent>
+        </Popover>
       )}
-    >
-      <Icon className="h-4 w-4 flex-shrink-0" />
-      <span className="truncate flex-1">{item.label}</span>
-      {item.badge && (
-        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-xs font-medium text-primary-foreground">
-          {item.badge}
-        </span>
-      )}
-    </Link>
+    </div>
   );
 }
 
 export function AppSidebar({ onNavigate }: AppSidebarProps) {
+  const [statusManagerOpen, setStatusManagerOpen] = useState(false);
+
   return (
     <div className="flex h-full flex-col bg-sidebar">
       {/* Header */}
       <div className="p-3">
-        <button className="flex w-full items-center gap-2 rounded-lg bg-sidebar-accent px-3 py-2 text-left transition-colors hover:bg-sidebar-accent/80">
+        <button className="flex w-full items-center gap-2 rounded-lg bg-sidebar-accent px-3 py-2 text-left transition-colors hover:bg-sidebar-accent/80 cursor-pointer">
           <div className="flex h-6 w-6 items-center justify-center rounded bg-gradient-to-br from-violet-500 to-purple-600">
             <span className="text-xs font-bold text-white">E</span>
           </div>
@@ -80,38 +141,25 @@ export function AppSidebar({ onNavigate }: AppSidebarProps) {
         </button>
       </div>
 
-      {/* Search */}
-      <div className="px-3 pb-2">
-        <Button 
-          variant="ghost" 
-          className="w-full justify-start gap-2 text-muted-foreground"
-          size="sm"
-        >
-          <Search className="h-4 w-4" />
-          <span>Search</span>
-        </Button>
-      </div>
-
       <ScrollArea className="flex-1 px-2">
         {/* Main nav */}
         <nav className="space-y-0.5 pb-4">
           {mainNav.map((item) => (
-            <NavLink key={item.label} item={item} onClick={onNavigate} />
+            <NavLink 
+              key={item.label} 
+              item={item} 
+              onClick={onNavigate}
+              onOpenStatusManager={() => setStatusManagerOpen(true)}
+            />
           ))}
         </nav>
       </ScrollArea>
 
-      {/* Footer */}
-      <div className="border-t p-3">
-        <Button
-          variant="ghost"
-          className="w-full justify-start gap-2 text-muted-foreground"
-          size="sm"
-        >
-          <Settings className="h-4 w-4" />
-          <span>Settings</span>
-        </Button>
-      </div>
+      {/* Status Manager Dialog */}
+      <StatusManagerDialog 
+        open={statusManagerOpen} 
+        onOpenChange={setStatusManagerOpen} 
+      />
     </div>
   );
 }

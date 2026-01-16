@@ -3,30 +3,34 @@
 import { useState, useEffect, useRef } from 'react';
 import { Timestamp } from 'firebase/firestore';
 import type { Complaint, ComplaintStatus, Priority, TimelineEntry } from '@/types';
-import { STATUS_LABELS, PRIORITY_LABELS, SOURCE_LABELS, CATEGORY_LABELS } from '@/types';
+import { STATUS_LABELS, SOURCE_LABELS, CATEGORY_LABELS } from '@/types';
 import { formatDate } from '@/lib/utils';
-import { updateComplaint, getTimeline, addComment, uploadAttachment, addAttachment } from '@/lib/services';
+import { useStatusConfig } from '@/lib/contexts/StatusContext';
+import { updateComplaint, getTimeline, addComment, updateComment, uploadAttachment, addAttachment, deleteComplaint, deleteTimelineEntry } from '@/lib/services';
 
 import Lightbox from 'yet-another-react-lightbox';
 import 'yet-another-react-lightbox/styles.css';
+import { Plyr } from 'plyr-react';
+// @ts-ignore
+import 'plyr/dist/plyr.css';
 
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import { DatePickerPopover } from '@/components/DatePickerPopover';
+import { StatusSelect, PrioritySelect, EditableText, EditableTextarea, CategorySelect } from '@/components/editable';
 import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-} from '@/components/ui/select';
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog';
 import {
   X,
   Calendar,
@@ -35,13 +39,16 @@ import {
   MapPin,
   User,
   Tag,
-  Flag,
   Clock,
   Paperclip,
   Send,
-  ChevronRight,
   Upload,
   Loader2,
+  Trash2,
+  Play,
+  Pencil,
+  Check,
+  XIcon,
 } from 'lucide-react';
 
 interface ComplaintDetailPanelProps {
@@ -49,84 +56,6 @@ interface ComplaintDetailPanelProps {
   open: boolean;
   onClose: () => void;
   onUpdate?: () => void;
-}
-
-// Status badge component with dropdown
-function StatusSelect({ 
-  value, 
-  onChange 
-}: { 
-  value: ComplaintStatus; 
-  onChange: (status: ComplaintStatus) => void;
-}) {
-  const statusColors: Record<ComplaintStatus, string> = {
-    submitted: 'bg-gray-500',
-    acknowledged: 'bg-blue-500',
-    under_review: 'bg-purple-500',
-    assigned: 'bg-indigo-500',
-    in_progress: 'bg-yellow-500',
-    pending_external_action: 'bg-orange-500',
-    resolved: 'bg-green-500',
-    closed: 'bg-gray-400',
-  };
-
-  return (
-    <Select value={value} onValueChange={onChange}>
-      <SelectTrigger className="w-auto h-7 border-0 bg-transparent p-0 focus:ring-0">
-        <span className={`inline-flex items-center gap-1.5 rounded px-2.5 py-1 text-xs font-medium uppercase text-white ${statusColors[value]}`}>
-          {STATUS_LABELS[value]}
-          <ChevronRight className="h-3 w-3 rotate-90" />
-        </span>
-      </SelectTrigger>
-      <SelectContent>
-        {Object.entries(STATUS_LABELS).map(([key, label]) => (
-          <SelectItem key={key} value={key}>
-            <span className="inline-flex items-center gap-2">
-              <span className={`h-2 w-2 rounded-full ${statusColors[key as ComplaintStatus]}`} />
-              {label}
-            </span>
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
-}
-
-// Priority select component
-function PrioritySelect({ 
-  value, 
-  onChange 
-}: { 
-  value: Priority | undefined; 
-  onChange: (priority: Priority) => void;
-}) {
-  const priorityColors: Record<Priority, string> = {
-    low: 'text-gray-500',
-    medium: 'text-blue-500',
-    high: 'text-orange-500',
-    urgent: 'text-red-500',
-  };
-
-  return (
-    <Select value={value || 'medium'} onValueChange={onChange}>
-      <SelectTrigger className="w-auto h-auto border-0 bg-transparent p-0 focus:ring-0">
-        <span className={`inline-flex items-center gap-1.5 text-sm ${value ? priorityColors[value] : 'text-muted-foreground'}`}>
-          <Flag className="h-4 w-4" />
-          {value ? PRIORITY_LABELS[value] : 'Set priority'}
-        </span>
-      </SelectTrigger>
-      <SelectContent>
-        {Object.entries(PRIORITY_LABELS).map(([key, label]) => (
-          <SelectItem key={key} value={key}>
-            <span className={`inline-flex items-center gap-2 ${priorityColors[key as Priority]}`}>
-              <Flag className="h-3 w-3" />
-              {label}
-            </span>
-          </SelectItem>
-        ))}
-      </SelectContent>
-    </Select>
-  );
 }
 
 // Field row component
@@ -156,16 +85,32 @@ function ActivityItem({
   action, 
   timestamp, 
   content,
+  isComment,
+  isEditing,
+  editContent,
+  onEditStart,
+  onEditChange,
+  onEditSave,
+  onEditCancel,
+  onDelete,
 }: { 
   user: string; 
   action?: string; 
   timestamp: string; 
   content?: string;
+  isComment?: boolean;
+  isEditing?: boolean;
+  editContent?: string;
+  onEditStart?: () => void;
+  onEditChange?: (value: string) => void;
+  onEditSave?: () => void;
+  onEditCancel?: () => void;
+  onDelete?: () => void;
 }) {
   const initials = user.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2);
   
   return (
-    <div className="flex gap-3 py-3 border-b border-border/30 last:border-0">
+    <div className="group flex gap-3 py-3 border-b border-border/30 last:border-0">
       <Avatar className="h-8 w-8 flex-shrink-0">
         <AvatarFallback className="bg-gradient-to-br from-violet-500 to-purple-600 text-xs text-white">
           {initials}
@@ -175,13 +120,72 @@ function ActivityItem({
         <div className="flex items-center gap-2 flex-wrap">
           <span className="font-medium text-sm">{user}</span>
           <span className="text-xs text-muted-foreground">{timestamp}</span>
+          {/* Edit/Delete buttons for comments */}
+          {isComment && !isEditing && (
+            <div className="ml-auto flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+              <button
+                onClick={onEditStart}
+                className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                title="Edit comment"
+              >
+                <Pencil className="h-3.5 w-3.5" />
+              </button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <button
+                    className="p-1 rounded hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors cursor-pointer"
+                    title="Delete comment"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete Comment</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Are you sure you want to delete this comment? This action cannot be undone.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={onDelete}
+                      className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                    >
+                      Delete
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </div>
+          )}
         </div>
         {action && (
           <p className="text-sm text-muted-foreground mt-0.5">{action}</p>
         )}
-        {content && (
-          <div className="mt-2 p-3 rounded-lg bg-muted/50 text-sm">
+        {content && !isEditing && (
+          <div className="mt-2 p-3 rounded-lg bg-muted/50 text-sm whitespace-pre-wrap">
             {content}
+          </div>
+        )}
+        {isEditing && (
+          <div className="mt-2">
+            <Textarea
+              value={editContent}
+              onChange={(e) => onEditChange?.(e.target.value)}
+              className="min-h-[60px] text-sm resize-none"
+              autoFocus
+            />
+            <div className="flex items-center gap-2 mt-2">
+              <Button size="sm" onClick={onEditSave} disabled={!editContent?.trim()}>
+                <Check className="h-3.5 w-3.5 mr-1" />
+                Save
+              </Button>
+              <Button size="sm" variant="ghost" onClick={onEditCancel}>
+                <XIcon className="h-3.5 w-3.5 mr-1" />
+                Cancel
+              </Button>
+            </div>
           </div>
         )}
       </div>
@@ -201,9 +205,25 @@ export function ComplaintDetailPanel({
   const [isLoadingTimeline, setIsLoadingTimeline] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [videoPlayerOpen, setVideoPlayerOpen] = useState(false);
+  const [currentVideoUrl, setCurrentVideoUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editingCommentContent, setEditingCommentContent] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { getStatusById } = useStatusConfig();
+
+  // Helper to get status name (supports both legacy and custom statuses)
+  const getStatusName = (statusId: string | undefined): string => {
+    if (!statusId) return 'Unknown';
+    // Try custom status first
+    const customStatus = getStatusById(statusId);
+    if (customStatus) return customStatus.name;
+    // Fall back to legacy labels
+    return STATUS_LABELS[statusId as keyof typeof STATUS_LABELS] || statusId;
+  };
 
   // Load timeline when complaint changes
   useEffect(() => {
@@ -218,10 +238,23 @@ export function ComplaintDetailPanel({
 
   if (!open || !complaint) return null;
 
-  const handleStatusChange = async (newStatus: ComplaintStatus) => {
+  const handleDelete = async () => {
+    setIsDeleting(true);
+    try {
+      await deleteComplaint(complaint.id);
+      onClose();
+      onUpdate?.();
+    } catch (error) {
+      console.error('Error deleting complaint:', error);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const handleStatusChange = async (newStatusId: string) => {
     setIsUpdating(true);
     try {
-      await updateComplaint(complaint.id, { status: newStatus } as any);
+      await updateComplaint(complaint.id, { status: newStatusId } as any);
       onUpdate?.();
     } catch (error) {
       console.error('Error updating status:', error);
@@ -270,6 +303,12 @@ export function ComplaintDetailPanel({
     }
   };
 
+  // Generic field update handler
+  const handleFieldUpdate = async (field: string, value: string) => {
+    await updateComplaint(complaint.id, { [field]: value || null });
+    onUpdate?.();
+  };
+
   const handleAddComment = async () => {
     if (!comment.trim()) return;
     try {
@@ -283,6 +322,31 @@ export function ComplaintDetailPanel({
       setTimeline(newTimeline);
     } catch (error) {
       console.error('Error adding comment:', error);
+    }
+  };
+
+  const handleEditComment = async (entryId: string) => {
+    if (!editingCommentContent.trim()) return;
+    try {
+      await updateComment(complaint.id, entryId, editingCommentContent);
+      setEditingCommentId(null);
+      setEditingCommentContent('');
+      // Refresh timeline
+      const newTimeline = await getTimeline(complaint.id);
+      setTimeline(newTimeline);
+    } catch (error) {
+      console.error('Error updating comment:', error);
+    }
+  };
+
+  const handleDeleteComment = async (entryId: string) => {
+    try {
+      await deleteTimelineEntry(complaint.id, entryId);
+      // Refresh timeline
+      const newTimeline = await getTimeline(complaint.id);
+      setTimeline(newTimeline);
+    } catch (error) {
+      console.error('Error deleting comment:', error);
     }
   };
 
@@ -339,9 +403,9 @@ export function ComplaintDetailPanel({
     switch (entry.type) {
       case 'status_change':
         if (entry.previousStatus) {
-          return `changed status from ${STATUS_LABELS[entry.previousStatus]} to ${STATUS_LABELS[entry.newStatus!]}`;
+          return `changed status from ${getStatusName(entry.previousStatus)} to ${getStatusName(entry.newStatus)}`;
         }
-        return `set status to ${STATUS_LABELS[entry.newStatus!]}`;
+        return `set status to ${getStatusName(entry.newStatus)}`;
       case 'assignment':
         return `assigned to ${entry.newAssignee}`;
       case 'comment':
@@ -358,17 +422,51 @@ export function ComplaintDetailPanel({
       {/* Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b bg-background">
         <div className="flex items-center gap-4">
-          <span className="font-mono text-xl font-bold text-blue-500">
-            {complaint.referenceNumber}
+          <span className="text-xl font-bold">
+            {complaint.complainantName}
           </span>
           <StatusSelect 
             value={complaint.status} 
             onChange={handleStatusChange}
           />
         </div>
-        <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
-          <X className="h-5 w-5" />
-        </Button>
+        <div className="flex items-center gap-2">
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10">
+                <Trash2 className="h-5 w-5" />
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete Complaint</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Are you sure you want to delete this complaint from {complaint.complainantName}? This action cannot be undone and will permanently remove the complaint along with all its attachments and activity history.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={handleDelete}
+                  disabled={isDeleting}
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    'Delete'
+                  )}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
+            <X className="h-5 w-5" />
+          </Button>
+        </div>
       </div>
 
       {/* Main Content */}
@@ -377,9 +475,6 @@ export function ComplaintDetailPanel({
         <div className="flex-1 flex flex-col overflow-hidden">
           <ScrollArea className="flex-1">
             <div className="p-6 max-w-3xl">
-              {/* Title */}
-              <h1 className="text-2xl font-semibold mb-2">{complaint.title}</h1>
-              
               {/* Quick Info Row */}
               <div className="flex items-center gap-6 mb-6 text-sm text-muted-foreground">
                 <PrioritySelect 
@@ -390,212 +485,216 @@ export function ComplaintDetailPanel({
 
               {/* Description */}
               <div className="mb-8 p-4 rounded-lg bg-muted/30 border">
-                <p className="text-sm leading-relaxed whitespace-pre-wrap">
-                  {complaint.description || 'No description provided.'}
-                </p>
+                <EditableTextarea
+                  value={complaint.description}
+                  onSave={(value) => handleFieldUpdate('description', value)}
+                  placeholder="Enter complaint description..."
+                />
               </div>
 
-              {/* Tabs */}
-              <Tabs defaultValue="details" className="w-full">
-                <TabsList className="w-full justify-start bg-transparent border-b rounded-none h-auto p-0 mb-4">
-                  <TabsTrigger 
-                    value="details" 
-                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2.5 text-sm"
-                  >
-                    Details
-                  </TabsTrigger>
-                  <TabsTrigger 
-                    value="attachments"
-                    className="rounded-none border-b-2 border-transparent data-[state=active]:border-primary data-[state=active]:bg-transparent px-4 py-2.5 text-sm"
-                  >
-                    Attachments
-                    {complaint.attachments && complaint.attachments.length > 0 && (
-                      <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-xs">
-                        {complaint.attachments.length}
-                      </span>
-                    )}
-                  </TabsTrigger>
-                </TabsList>
-
-                <TabsContent value="details" className="mt-0">
-                  <div className="space-y-0">
-                    <FieldRow icon={User} label="Complainant">
-                      {complaint.complainantName}
-                    </FieldRow>
-                    <FieldRow icon={Phone} label="Phone">
-                      {complaint.complainantPhone || <span className="text-muted-foreground">—</span>}
-                    </FieldRow>
-                    <FieldRow icon={Tag} label="Source">
-                      <span className="inline-flex items-center rounded-md bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-                        {SOURCE_LABELS[complaint.source]}
-                      </span>
-                    </FieldRow>
-                    {complaint.category && (
-                      <FieldRow icon={Tag} label="Category">
-                        {CATEGORY_LABELS[complaint.category]}
-                      </FieldRow>
-                    )}
-                    {complaint.location && (
-                      <FieldRow icon={MapPin} label="Location">
-                        {complaint.location}
-                      </FieldRow>
-                    )}
-                    {complaint.respondentName && (
-                      <FieldRow icon={User} label="Respondent">
-                        {complaint.respondentName}
-                      </FieldRow>
-                    )}
-                    <FieldRow icon={Clock} label="Created">
-                      {formatDate(complaint.createdAt.toDate())}
-                    </FieldRow>
-                    
-                    {/* Due Date with Calendar Picker */}
-                    <div className="flex items-center gap-3 py-2.5 border-b border-border/50">
-                      <div className="flex items-center gap-2 w-36 text-muted-foreground">
-                        <Calendar className="h-4 w-4" />
-                        <span className="text-sm">Due Date</span>
-                      </div>
-                      <div className="flex-1 text-sm">
-                        <DatePickerPopover
-                          value={complaint.dueDate?.toDate()}
-                          onChange={handleDueDateChange}
-                        />
-                      </div>
-                    </div>
-
-                    {/* Date Closed with Calendar Picker */}
-                    <div className="flex items-center gap-3 py-2.5 border-b border-border/50 last:border-0">
-                      <div className="flex items-center gap-2 w-36 text-muted-foreground">
-                        <CalendarCheck className="h-4 w-4" />
-                        <span className="text-sm">Date Closed</span>
-                      </div>
-                      <div className="flex-1 text-sm">
-                        <DatePickerPopover
-                          value={complaint.closedAt?.toDate()}
-                          onChange={handleClosedAtChange}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </TabsContent>
-
-                <TabsContent value="attachments" className="mt-0">
-                  {/* Hidden file input */}
-                  <input
-                    type="file"
-                    ref={fileInputRef}
-                    className="hidden"
-                    multiple
-                    accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
-                    onChange={(e) => handleFileUpload(e.target.files)}
-                  />
+              {/* Details Section */}
+              <div className="mb-8">
+                <h3 className="text-sm font-medium mb-3">Details</h3>
+                <div className="space-y-0">
+                  <FieldRow icon={Phone} label="Phone">
+                    <EditableText
+                      value={complaint.complainantPhone}
+                      onSave={(value) => handleFieldUpdate('complainantPhone', value)}
+                      placeholder="Enter phone number..."
+                    />
+                  </FieldRow>
+                  <FieldRow icon={Tag} label="Source">
+                    <span className="inline-flex items-center rounded-md bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
+                      {SOURCE_LABELS[complaint.source]}
+                    </span>
+                  </FieldRow>
+                  <FieldRow icon={Tag} label="Category">
+                    <CategorySelect
+                      value={complaint.category}
+                      onSave={(value) => handleFieldUpdate('category', value)}
+                    />
+                  </FieldRow>
+                  <FieldRow icon={MapPin} label="Location">
+                    <EditableText
+                      value={complaint.location}
+                      onSave={(value) => handleFieldUpdate('location', value)}
+                      placeholder="Enter location..."
+                    />
+                  </FieldRow>
+                  <FieldRow icon={User} label="Respondent">
+                    <EditableText
+                      value={complaint.respondentName}
+                      onSave={(value) => handleFieldUpdate('respondentName', value)}
+                      placeholder="Enter respondent name..."
+                    />
+                  </FieldRow>
+                  <FieldRow icon={Clock} label="Created">
+                    {formatDate(complaint.createdAt.toDate())}
+                  </FieldRow>
                   
-                  {/* Drop zone */}
-                  <div
-                    onDragOver={handleDragOver}
-                    onDragLeave={handleDragLeave}
-                    onDrop={handleDrop}
-                    onClick={() => fileInputRef.current?.click()}
-                    className={`mb-4 border-2 border-dashed rounded-lg p-4 text-center text-sm cursor-pointer transition-colors ${
-                      isDragging 
-                        ? 'border-primary bg-primary/5 text-primary' 
-                        : 'border-border/50 text-muted-foreground hover:border-primary/50 hover:bg-muted/50'
-                    }`}
-                  >
-                    {isUploading ? (
-                      <div className="flex items-center justify-center gap-2">
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        <span>Uploading...</span>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-center gap-2">
-                        <Upload className="h-4 w-4" />
-                        <span>Drop files here or <span className="text-primary underline">browse</span></span>
-                      </div>
-                    )}
+                  {/* Due Date with Calendar Picker */}
+                  <div className="flex items-center gap-3 py-2.5 border-b border-border/50">
+                    <div className="flex items-center gap-2 w-36 text-muted-foreground">
+                      <Calendar className="h-4 w-4" />
+                      <span className="text-sm">Due Date</span>
+                    </div>
+                    <div className="flex-1 text-sm">
+                      <DatePickerPopover
+                        value={complaint.dueDate?.toDate()}
+                        onChange={handleDueDateChange}
+                      />
+                    </div>
                   </div>
 
-                  {complaint.attachments && complaint.attachments.length > 0 ? (
-                    <>
-                      {/* Image grid */}
-                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                        {complaint.attachments.map((attachment, idx) => {
-                          const isImage = attachment.fileType.startsWith('image/');
-                          return (
-                            <div key={idx} className="group">
-                              {isImage ? (
-                                <button
-                                  onClick={() => {
-                                    setLightboxIndex(idx);
-                                    setLightboxOpen(true);
-                                  }}
-                                  className="w-full aspect-square rounded-lg overflow-hidden bg-muted border hover:border-primary transition-colors"
-                                >
-                                  <img
-                                    src={attachment.fileUrl}
-                                    alt={attachment.fileName}
-                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                  />
-                                </button>
-                              ) : (
-                                <a
-                                  href={attachment.fileUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="w-full aspect-square rounded-lg overflow-hidden bg-muted border flex items-center justify-center hover:border-primary transition-colors"
-                                >
-                                  <Paperclip className="h-8 w-8 text-muted-foreground" />
-                                </a>
-                              )}
-                              <div className="mt-2">
-                                <p className="text-sm font-medium truncate">{attachment.fileName}</p>
-                                <p className="text-xs text-muted-foreground">
-                                  {formatDate(complaint.createdAt.toDate())}
-                                </p>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-
-                      {/* Lightbox */}
-                      <Lightbox
-                        open={lightboxOpen}
-                        close={() => setLightboxOpen(false)}
-                        index={lightboxIndex}
-                        slides={complaint.attachments
-                          .filter(a => a.fileType.startsWith('image/'))
-                          .map(a => ({ src: a.fileUrl, alt: a.fileName }))}
+                  {/* Date Closed with Calendar Picker */}
+                  <div className="flex items-center gap-3 py-2.5 border-b border-border/50 last:border-0">
+                    <div className="flex items-center gap-2 w-36 text-muted-foreground">
+                      <CalendarCheck className="h-4 w-4" />
+                      <span className="text-sm">Date Closed</span>
+                    </div>
+                    <div className="flex-1 text-sm">
+                      <DatePickerPopover
+                        value={complaint.closedAt?.toDate()}
+                        onChange={handleClosedAtChange}
                       />
-                    </>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Attachments Section */}
+              <div>
+                <h3 className="text-sm font-medium mb-3">
+                  Attachments
+                  {complaint.attachments && complaint.attachments.length > 0 && (
+                    <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-xs">
+                      {complaint.attachments.length}
+                    </span>
+                  )}
+                </h3>
+                
+                {/* Hidden file input */}
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  className="hidden"
+                  multiple
+                  accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                  onChange={(e) => handleFileUpload(e.target.files)}
+                />
+                
+                {/* Drop zone */}
+                <div
+                  onDragOver={handleDragOver}
+                  onDragLeave={handleDragLeave}
+                  onDrop={handleDrop}
+                  onClick={() => fileInputRef.current?.click()}
+                  className={`mb-4 border-2 border-dashed rounded-lg p-4 text-center text-sm cursor-pointer transition-colors ${
+                    isDragging 
+                      ? 'border-primary bg-primary/5 text-primary' 
+                      : 'border-border/50 text-muted-foreground hover:border-primary/50 hover:bg-muted/50'
+                  }`}
+                >
+                  {isUploading ? (
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Uploading...</span>
+                    </div>
                   ) : (
-                    <div 
-                      onDragOver={handleDragOver}
-                      onDragLeave={handleDragLeave}
-                      onDrop={handleDrop}
-                      onClick={() => fileInputRef.current?.click()}
-                      className={`text-center py-12 cursor-pointer rounded-lg transition-colors ${
-                        isDragging 
-                          ? 'bg-primary/5 text-primary' 
-                          : 'text-muted-foreground hover:bg-muted/50'
-                      }`}
-                    >
-                      {isUploading ? (
-                        <>
-                          <Loader2 className="h-10 w-10 mx-auto mb-3 animate-spin" />
-                          <p className="text-sm">Uploading...</p>
-                        </>
-                      ) : (
-                        <>
-                          <Upload className="h-10 w-10 mx-auto mb-3 opacity-40" />
-                          <p className="text-sm">No attachments yet</p>
-                          <p className="text-xs mt-1">Drop files here or click to upload</p>
-                        </>
-                      )}
+                    <div className="flex items-center justify-center gap-2">
+                      <Upload className="h-4 w-4" />
+                      <span>Drop files here or <span className="text-primary underline">browse</span></span>
                     </div>
                   )}
-                </TabsContent>
-              </Tabs>
+                </div>
+
+                {complaint.attachments && complaint.attachments.length > 0 && (
+                  <>
+                    {/* Media grid */}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      {complaint.attachments.map((attachment, idx) => {
+                        const isImage = attachment.fileType.startsWith('image/');
+                        const isVideo = attachment.fileType.startsWith('video/');
+                        
+                        // Calculate the index for lightbox (only image files now)
+                        const imageIndex = complaint.attachments!
+                          .slice(0, idx)
+                          .filter(a => a.fileType.startsWith('image/'))
+                          .length;
+                        
+                        return (
+                          <div key={idx} className="group">
+                            {isImage ? (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setLightboxIndex(imageIndex);
+                                  setLightboxOpen(true);
+                                }}
+                                className="w-full aspect-square rounded-lg overflow-hidden bg-muted border hover:border-primary transition-colors cursor-pointer"
+                              >
+                                <img
+                                  src={attachment.fileUrl}
+                                  alt={attachment.fileName}
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                />
+                              </button>
+                            ) : isVideo ? (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setCurrentVideoUrl(attachment.fileUrl);
+                                  setVideoPlayerOpen(true);
+                                }}
+                                className="relative w-full aspect-square rounded-lg overflow-hidden bg-muted border hover:border-primary transition-colors cursor-pointer"
+                              >
+                                <video
+                                  src={attachment.fileUrl}
+                                  className="w-full h-full object-cover"
+                                  muted
+                                  preload="metadata"
+                                />
+                                {/* Play button overlay */}
+                                <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
+                                  <div className="flex items-center justify-center w-12 h-12 rounded-full bg-white/90 group-hover:bg-white transition-colors">
+                                    <Play className="h-6 w-6 text-gray-800 ml-1" />
+                                  </div>
+                                </div>
+                              </button>
+                            ) : (
+                              <a
+                                href={attachment.fileUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                className="w-full aspect-square rounded-lg overflow-hidden bg-muted border flex items-center justify-center hover:border-primary transition-colors"
+                              >
+                                <Paperclip className="h-8 w-8 text-muted-foreground" />
+                              </a>
+                            )}
+                            <div className="mt-2">
+                              <p className="text-sm font-medium truncate">{attachment.fileName}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatDate(complaint.createdAt.toDate())}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+
+                    {/* Lightbox for images only */}
+                    <Lightbox
+                      open={lightboxOpen}
+                      close={() => setLightboxOpen(false)}
+                      index={lightboxIndex}
+                      slides={complaint.attachments
+                        .filter(a => a.fileType.startsWith('image/'))
+                        .map(a => ({ src: a.fileUrl, alt: a.fileName }))}
+                    />
+                  </>
+                )}
+              </div>
             </div>
           </ScrollArea>
         </div>
@@ -618,6 +717,20 @@ export function ComplaintDetailPanel({
                     action={getTimelineAction(entry)}
                     timestamp={formatDate(entry.createdAt.toDate())}
                     content={entry.type === 'comment' ? entry.content : undefined}
+                    isComment={entry.type === 'comment'}
+                    isEditing={editingCommentId === entry.id}
+                    editContent={editingCommentId === entry.id ? editingCommentContent : ''}
+                    onEditStart={() => {
+                      setEditingCommentId(entry.id);
+                      setEditingCommentContent(entry.content || '');
+                    }}
+                    onEditChange={setEditingCommentContent}
+                    onEditSave={() => handleEditComment(entry.id)}
+                    onEditCancel={() => {
+                      setEditingCommentId(null);
+                      setEditingCommentContent('');
+                    }}
+                    onDelete={() => handleDeleteComment(entry.id)}
                   />
                 ))
               )}
@@ -645,6 +758,61 @@ export function ComplaintDetailPanel({
           </div>
         </div>
       </div>
+
+      {/* Video Player Modal - rendered outside main content for proper z-index */}
+      {videoPlayerOpen && currentVideoUrl && (
+        <div 
+          className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 p-8"
+          onClick={() => {
+            setVideoPlayerOpen(false);
+            setCurrentVideoUrl(null);
+          }}
+        >
+          <div 
+            className="relative w-full max-w-4xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => {
+                setVideoPlayerOpen(false);
+                setCurrentVideoUrl(null);
+              }}
+              className="absolute -top-10 right-0 p-2 text-white/80 hover:text-white transition-colors z-10 cursor-pointer"
+            >
+              <X className="h-6 w-6" />
+            </button>
+            
+            {/* Video Player */}
+            <div className="relative bg-black rounded-lg overflow-hidden" style={{ maxHeight: '70vh' }}>
+              <Plyr
+                source={{
+                  type: 'video',
+                  sources: [{ src: currentVideoUrl, type: 'video/mp4' }],
+                }}
+                options={{
+                  autoplay: true,
+                  controls: [
+                    'play-large',
+                    'play',
+                    'progress',
+                    'current-time',
+                    'duration',
+                    'mute',
+                    'volume',
+                    'settings',
+                    'pip',
+                    'fullscreen',
+                  ],
+                  settings: ['speed'],
+                  speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] },
+                  ratio: '16:9',
+                }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
