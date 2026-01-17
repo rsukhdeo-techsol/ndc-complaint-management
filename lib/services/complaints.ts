@@ -15,6 +15,7 @@ import {
   runTransaction,
   QueryConstraint,
   increment,
+  arrayUnion,
 } from 'firebase/firestore';
 import { db, COLLECTIONS } from '../firebase';
 import {
@@ -360,7 +361,7 @@ export async function addComment(
 }
 
 /**
- * Add an attachment entry to the timeline
+ * Add an attachment entry to the timeline and update complaint's attachments array
  */
 export async function addAttachment(
   complaintId: string,
@@ -369,9 +370,10 @@ export async function addAttachment(
   const complaintRef = doc(db, COLLECTIONS.COMPLAINTS, complaintId);
   const now = Timestamp.now();
   
-  // Update complaint's updatedAt
+  // Update complaint's updatedAt and add attachment to attachments array
   await updateDoc(complaintRef, {
     updatedAt: now,
+    attachments: arrayUnion(input.attachment),
   });
   
   // Add timeline entry

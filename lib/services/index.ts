@@ -17,6 +17,7 @@ export {
 // Storage services
 export {
   uploadAttachment,
+  uploadAttachmentWithProgress,
   deleteAttachment,
   deleteAllAttachments,
 } from './storage';

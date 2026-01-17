@@ -7,7 +7,8 @@ import type { Complaint, ComplaintStatus, Priority, TimelineEntry } from '@/type
 import { STATUS_LABELS, SOURCE_LABELS, CATEGORY_LABELS } from '@/types';
 import { formatDate } from '@/lib/utils';
 import { useStatusConfig } from '@/lib/contexts/StatusContext';
-import { updateComplaint, getTimeline, addComment, updateComment, uploadAttachment, addAttachment, deleteComplaint, deleteTimelineEntry } from '@/lib/services';
+import { updateComplaint, getTimeline, addComment, updateComment, uploadAttachmentWithProgress, addAttachment, deleteComplaint, deleteTimelineEntry } from '@/lib/services';
+import { formatFileSize } from '@/lib/utils';
 
 import Lightbox from 'yet-another-react-lightbox';
 import 'yet-another-react-lightbox/styles.css';
@@ -212,6 +213,7 @@ export function ComplaintDetailPanel({
   const [videoPlayerOpen, setVideoPlayerOpen] = useState(false);
   const [currentVideoUrl, setCurrentVideoUrl] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: { name: string; progress: number; size: number } }>({});
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
@@ -364,26 +366,52 @@ export function ComplaintDetailPanel({
     if (!files || files.length === 0 || !complaint) return;
     
     setIsUploading(true);
+    const fileArray = Array.from(files);
+    
+    // Initialize progress for all files
+    const initialProgress: { [key: string]: { name: string; progress: number; size: number } } = {};
+    fileArray.forEach((file, idx) => {
+      initialProgress[`file-${idx}`] = { name: file.name, progress: 0, size: file.size };
+    });
+    setUploadProgress(initialProgress);
+    
     try {
-      for (const file of Array.from(files)) {
-        // Upload to Firebase Storage
-        const attachmentData = await uploadAttachment(complaint.id, file);
+      // Upload all files with individual progress tracking
+      const uploadPromises = fileArray.map(async (file, idx) => {
+        const fileKey = `file-${idx}`;
         
-        // Add to timeline
+        // Upload with progress
+        const attachmentData = await uploadAttachmentWithProgress(
+          complaint.id,
+          file,
+          (progress) => {
+            setUploadProgress(prev => ({
+              ...prev,
+              [fileKey]: { ...prev[fileKey], progress }
+            }));
+          }
+        );
+        
+        // Add to timeline and complaint attachments
         await addAttachment(complaint.id, {
           attachment: attachmentData,
-          createdBy: 'current-user', // TODO: Get from auth
+          createdBy: 'current-user',
         });
-      }
+        
+        return attachmentData;
+      });
+      
+      await Promise.all(uploadPromises);
       
       // Refresh timeline and complaint data
       const newTimeline = await getTimeline(complaint.id);
       setTimeline(newTimeline);
-      onUpdate?.(); // Refresh complaint to get updated attachments
+      onUpdate?.();
     } catch (error) {
       console.error('Error uploading file:', error);
     } finally {
       setIsUploading(false);
+      setUploadProgress({});
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
@@ -598,17 +626,36 @@ export function ComplaintDetailPanel({
                   onDragOver={handleDragOver}
                   onDragLeave={handleDragLeave}
                   onDrop={handleDrop}
-                  onClick={() => fileInputRef.current?.click()}
-                  className={`mb-4 border-2 border-dashed rounded-lg p-4 text-center text-sm cursor-pointer transition-colors ${
-                    isDragging 
-                      ? 'border-primary bg-primary/5 text-primary' 
-                      : 'border-border/50 text-muted-foreground hover:border-primary/50 hover:bg-muted/50'
+                  onClick={() => !isUploading && fileInputRef.current?.click()}
+                  className={`mb-4 border-2 border-dashed rounded-lg p-4 text-center text-sm transition-colors ${
+                    isUploading 
+                      ? 'border-border/50 bg-muted/30 cursor-default'
+                      : isDragging 
+                        ? 'border-primary bg-primary/5 text-primary cursor-pointer' 
+                        : 'border-border/50 text-muted-foreground hover:border-primary/50 hover:bg-muted/50 cursor-pointer'
                   }`}
                 >
-                  {isUploading ? (
-                    <div className="flex items-center justify-center gap-2">
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>Uploading...</span>
+                  {Object.keys(uploadProgress).length > 0 ? (
+                    <div className="space-y-3">
+                      {Object.entries(uploadProgress).map(([key, { name, progress, size }]) => (
+                        <div key={key} className="text-left">
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-xs font-medium truncate max-w-[200px]">{name}</span>
+                            <span className="text-xs text-muted-foreground ml-2">
+                              {progress < 100 ? `${Math.round(progress)}%` : 'Processing...'}
+                            </span>
+                          </div>
+                          <div className="h-2 bg-muted rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-primary rounded-full transition-all duration-300 ease-out"
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            {formatFileSize(size)}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   ) : (
                     <div className="flex items-center justify-center gap-2">
@@ -709,10 +756,10 @@ export function ComplaintDetailPanel({
           </ScrollArea>
         </div>
 
-        {/* Right Side - Activity */}
+        {/* Right Side - Activity & Comments */}
         <div className="w-[360px] border-l flex flex-col bg-muted/10">
           <div className="px-4 py-3 border-b">
-            <h3 className="font-medium">Activity</h3>
+            <h3 className="font-medium">Activity & Comments</h3>
           </div>
           
           <ScrollArea className="flex-1">
