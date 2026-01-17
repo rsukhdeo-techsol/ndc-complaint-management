@@ -172,11 +172,14 @@ export function NewComplaintDialog({
       setSelectedFiles([]);
       setOpen(false);
       onCreated?.();
-    } catch (e) {
-      console.error(e);
-      setSubmitError(
-        'Failed to create complaint. Check Firebase rules/connection and try again.'
-      );
+    } catch (e: any) {
+      console.error('Complaint creation error:', e);
+      console.error('Error code:', e?.code);
+      console.error('Error message:', e?.message);
+      const errorMsg = e?.code === 'permission-denied' 
+        ? 'Permission denied. Firestore rules may not be deployed correctly.'
+        : e?.message || 'Failed to create complaint. Check Firebase rules/connection and try again.';
+      setSubmitError(errorMsg);
     } finally {
       setIsSubmitting(false);
     }
