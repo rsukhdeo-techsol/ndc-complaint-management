@@ -182,22 +182,24 @@ export function ActivityPanel({
   return (
     <div className="w-[360px] border-l flex flex-col bg-muted/10 min-h-0">
       <div className="px-4 py-3 border-b flex-shrink-0">
-        <h3 className="font-medium">Activity & Comments</h3>
+        <h3 className="font-medium">Comments</h3>
       </div>
       
       <ScrollArea className="flex-1 min-h-0">
         <div className="px-4 py-2">
-          {timeline.length === 0 && !isLoadingTimeline ? (
-            <p className="text-sm text-muted-foreground py-4 text-center">No activity yet</p>
+          {timeline.filter(e => e.type === 'comment').length === 0 && !isLoadingTimeline ? (
+            <p className="text-sm text-muted-foreground py-4 text-center">No comments yet</p>
           ) : (
-            timeline.map((entry) => (
+            timeline
+              .filter(entry => entry.type === 'comment')
+              .map((entry) => (
               <ActivityItem 
                 key={entry.id}
                 user={entry.createdBy === 'system' ? 'System' : entry.createdBy}
                 action={getTimelineAction(entry)}
                 timestamp={formatDate(entry.createdAt.toDate())}
-                content={entry.type === 'comment' ? entry.content : undefined}
-                isComment={entry.type === 'comment'}
+                content={entry.content}
+                isComment={true}
                 isEditing={editingCommentId === entry.id}
                 editContent={editingCommentId === entry.id ? editingCommentContent : ''}
                 onEditStart={() => {

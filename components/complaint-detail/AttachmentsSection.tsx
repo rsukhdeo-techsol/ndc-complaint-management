@@ -6,7 +6,7 @@ import type { AttachmentsSectionProps } from './types';
 import { formatDate, formatFileSize } from '@/lib/utils';
 import Lightbox from 'yet-another-react-lightbox';
 import 'yet-another-react-lightbox/styles.css';
-import { Paperclip, Upload, Play } from 'lucide-react';
+import { Paperclip, Upload, Play, ArrowUpDown } from 'lucide-react';
 
 interface AttachmentsSectionWithLightboxProps extends AttachmentsSectionProps {
   onOpenVideoPlayer: (url: string) => void;
@@ -22,6 +22,7 @@ export function AttachmentsSection({
   const [isDragging, setIsDragging] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -43,16 +44,32 @@ export function AttachmentsSection({
     onUpload(e.dataTransfer.files);
   };
 
+  // Get sorted attachments
+  const sortedAttachments = complaint.attachments 
+    ? (sortOrder === 'newest' ? [...complaint.attachments].reverse() : complaint.attachments)
+    : [];
+
   return (
     <div className="px-6 pb-6">
-      <h3 className="text-sm font-medium mb-3">
-        Attachments
-        {complaint.attachments && complaint.attachments.length > 0 && (
-          <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-xs">
-            {complaint.attachments.length}
-          </span>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-medium">
+          Attachments
+          {complaint.attachments && complaint.attachments.length > 0 && (
+            <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-xs">
+              {complaint.attachments.length}
+            </span>
+          )}
+        </h3>
+        {complaint.attachments && complaint.attachments.length > 1 && (
+          <button
+            onClick={() => setSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
+            className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+          >
+            <ArrowUpDown className="h-3.5 w-3.5" />
+            {sortOrder === 'newest' ? 'Newest first' : 'Oldest first'}
+          </button>
         )}
-      </h3>
+      </div>
       
       {/* Hidden file input */}
       <input
@@ -60,7 +77,7 @@ export function AttachmentsSection({
         ref={fileInputRef}
         className="hidden"
         multiple
-        accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+        accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf,.odt,.ods,.odp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.*"
         onChange={(e) => onUpload(e.target.files)}
       />
       
@@ -90,7 +107,7 @@ export function AttachmentsSection({
                 </div>
                 <div className="h-2 bg-muted rounded-full overflow-hidden">
                   <div 
-                    className="h-full bg-primary rounded-full transition-all duration-300 ease-out"
+                    className="h-full bg-emerald-500 rounded-full transition-all duration-300 ease-out"
                     style={{ width: `${progress}%` }}
                   />
                 </div>
@@ -110,14 +127,14 @@ export function AttachmentsSection({
 
       {complaint.attachments && complaint.attachments.length > 0 && (
         <>
-          {/* Media grid */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            {complaint.attachments.map((attachment, idx) => {
+          {/* Media grid - shows all attachments */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+            {sortedAttachments.map((attachment, idx) => {
               const isImage = attachment.fileType.startsWith('image/');
               const isVideo = attachment.fileType.startsWith('video/');
               
               // Calculate the index for lightbox (only image files)
-              const imageIndex = complaint.attachments!
+              const imageIndex = sortedAttachments
                 .slice(0, idx)
                 .filter(a => a.fileType.startsWith('image/'))
                 .length;
@@ -182,12 +199,12 @@ export function AttachmentsSection({
             })}
           </div>
 
-          {/* Lightbox for images only */}
+          {/* Lightbox for images only - sorted */}
           <Lightbox
             open={lightboxOpen}
             close={() => setLightboxOpen(false)}
             index={lightboxIndex}
-            slides={complaint.attachments
+            slides={sortedAttachments
               .filter(a => a.fileType.startsWith('image/'))
               .map(a => ({ src: a.fileUrl, alt: a.fileName }))}
           />

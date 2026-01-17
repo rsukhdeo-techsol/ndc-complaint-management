@@ -54,6 +54,8 @@ import {
   Pencil,
   Check,
   XIcon,
+  ArrowUpDown,
+  ChevronDown,
 } from 'lucide-react';
 
 interface ComplaintDetailPanelProps {
@@ -218,6 +220,7 @@ export function ComplaintDetailPanel({
   const [isDragging, setIsDragging] = useState(false);
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentContent, setEditingCommentContent] = useState('');
+  const [attachmentSortOrder, setAttachmentSortOrder] = useState<'newest' | 'oldest'>('newest');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { getStatusById } = useStatusConfig();
 
@@ -602,14 +605,25 @@ export function ComplaintDetailPanel({
 
               {/* Attachments Section */}
               <div>
-                <h3 className="text-sm font-medium mb-3">
-                  Attachments
-                  {complaint.attachments && complaint.attachments.length > 0 && (
-                    <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-xs">
-                      {complaint.attachments.length}
-                    </span>
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-sm font-medium">
+                    Attachments
+                    {complaint.attachments && complaint.attachments.length > 0 && (
+                      <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-muted px-1.5 text-xs">
+                        {complaint.attachments.length}
+                      </span>
+                    )}
+                  </h3>
+                  {complaint.attachments && complaint.attachments.length > 1 && (
+                    <button
+                      onClick={() => setAttachmentSortOrder(prev => prev === 'newest' ? 'oldest' : 'newest')}
+                      className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                    >
+                      <ArrowUpDown className="h-3.5 w-3.5" />
+                      {attachmentSortOrder === 'newest' ? 'Newest first' : 'Oldest first'}
+                    </button>
                   )}
-                </h3>
+                </div>
                 
                 {/* Hidden file input */}
                 <input
@@ -617,7 +631,7 @@ export function ComplaintDetailPanel({
                   ref={fileInputRef}
                   className="hidden"
                   multiple
-                  accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                  accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.rtf,.odt,.ods,.odp,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.*"
                   onChange={(e) => handleFileUpload(e.target.files)}
                 />
                 
@@ -647,7 +661,7 @@ export function ComplaintDetailPanel({
                           </div>
                           <div className="h-2 bg-muted rounded-full overflow-hidden">
                             <div 
-                              className="h-full bg-primary rounded-full transition-all duration-300 ease-out"
+                              className="h-full bg-emerald-500 rounded-full transition-all duration-300 ease-out"
                               style={{ width: `${progress}%` }}
                             />
                           </div>
@@ -667,14 +681,20 @@ export function ComplaintDetailPanel({
 
                 {complaint.attachments && complaint.attachments.length > 0 && (
                   <>
-                    {/* Media grid */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                      {complaint.attachments.map((attachment, idx) => {
+                    {/* Media grid - shows all attachments */}
+                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                      {(attachmentSortOrder === 'newest' 
+                        ? [...complaint.attachments].reverse() 
+                        : complaint.attachments
+                      ).map((attachment, idx) => {
                         const isImage = attachment.fileType.startsWith('image/');
                         const isVideo = attachment.fileType.startsWith('video/');
                         
-                        // Calculate the index for lightbox (only image files now)
-                        const imageIndex = complaint.attachments!
+                        // Calculate the index for lightbox based on sorted order
+                        const sortedAttachments = attachmentSortOrder === 'newest' 
+                          ? [...complaint.attachments!].reverse() 
+                          : complaint.attachments!;
+                        const imageIndex = sortedAttachments
                           .slice(0, idx)
                           .filter(a => a.fileType.startsWith('image/'))
                           .length;
@@ -740,12 +760,14 @@ export function ComplaintDetailPanel({
                       })}
                     </div>
 
-                    {/* Lightbox for images only */}
+                    {/* Lightbox for images only - sorted */}
                     <Lightbox
                       open={lightboxOpen}
                       close={() => setLightboxOpen(false)}
                       index={lightboxIndex}
-                      slides={complaint.attachments
+                      slides={(attachmentSortOrder === 'newest' 
+                        ? [...complaint.attachments].reverse() 
+                        : complaint.attachments)
                         .filter(a => a.fileType.startsWith('image/'))
                         .map(a => ({ src: a.fileUrl, alt: a.fileName }))}
                     />
@@ -756,25 +778,27 @@ export function ComplaintDetailPanel({
           </ScrollArea>
         </div>
 
-        {/* Right Side - Activity & Comments */}
+        {/* Right Side - Comments Only */}
         <div className="w-[360px] border-l flex flex-col bg-muted/10">
           <div className="px-4 py-3 border-b">
-            <h3 className="font-medium">Activity & Comments</h3>
+            <h3 className="font-medium">Comments</h3>
           </div>
           
           <ScrollArea className="flex-1">
             <div className="px-4 py-2">
-              {timeline.length === 0 && !isLoadingTimeline ? (
-                <p className="text-sm text-muted-foreground py-4 text-center">No activity yet</p>
+              {timeline.filter(e => e.type === 'comment').length === 0 && !isLoadingTimeline ? (
+                <p className="text-sm text-muted-foreground py-4 text-center">No comments yet</p>
               ) : (
-                timeline.map((entry) => (
+                timeline
+                  .filter(entry => entry.type === 'comment')
+                  .map((entry) => (
                   <ActivityItem 
                     key={entry.id}
                     user={entry.createdBy === 'system' ? 'System' : entry.createdBy}
                     action={getTimelineAction(entry)}
                     timestamp={formatDate(entry.createdAt.toDate())}
-                    content={entry.type === 'comment' ? entry.content : undefined}
-                    isComment={entry.type === 'comment'}
+                    content={entry.content}
+                    isComment={true}
                     isEditing={editingCommentId === entry.id}
                     editContent={editingCommentId === entry.id ? editingCommentContent : ''}
                     onEditStart={() => {
