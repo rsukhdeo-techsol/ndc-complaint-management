@@ -3,16 +3,17 @@ import { getFirestore, Firestore } from 'firebase/firestore';
 import { getStorage, FirebaseStorage } from 'firebase/storage';
 
 // Firebase configuration from environment variables
+// Trim values to remove any accidental whitespace/newlines
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY?.trim(),
+  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN?.trim(),
+  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID?.trim(),
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET?.trim(),
+  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID?.trim(),
+  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID?.trim(),
 };
 
-// Debug: Log Firebase config (only shows if values are present) - build timestamp: 2026-01-17
+// Debug: Log Firebase config (only shows if values are present)
 if (typeof window !== 'undefined') {
   console.log('Firebase config loaded:', {
     hasApiKey: !!firebaseConfig.apiKey,
@@ -28,44 +29,21 @@ export const COLLECTIONS = {
   NOTIFICATIONS: 'notifications',
 } as const;
 
-// Initialize Firebase lazily to avoid SSR issues
-let _app: FirebaseApp | undefined;
-let _db: Firestore | undefined;
-let _storage: FirebaseStorage | undefined;
+// Initialize Firebase - simple singleton pattern
+let _app: FirebaseApp | null = null;
+let _db: Firestore | null = null;
+let _storage: FirebaseStorage | null = null;
 
-function initFirebase(): FirebaseApp {
+function getApp(): FirebaseApp {
   if (!_app) {
-    if (getApps().length === 0) {
-      _app = initializeApp(firebaseConfig);
-    } else {
-      _app = getApps()[0];
-    }
+    _app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
   }
   return _app;
 }
 
-// Create getter-based exports that look like direct variables
-// This ensures Firebase is only initialized when actually accessed
-export const app = new Proxy({} as FirebaseApp, {
-  get(_, prop) {
-    return (initFirebase() as unknown as Record<string | symbol, unknown>)[prop];
-  },
-});
+// Export initialized instances directly
+export const app: FirebaseApp = typeof window !== 'undefined' ? getApp() : ({} as FirebaseApp);
 
-export const db = new Proxy({} as Firestore, {
-  get(_, prop) {
-    if (!_db) {
-      _db = getFirestore(initFirebase());
-    }
-    return (_db as unknown as Record<string | symbol, unknown>)[prop];
-  },
-});
+export const db: Firestore = typeof window !== 'undefined' ? getFirestore(getApp()) : ({} as Firestore);
 
-export const storage = new Proxy({} as FirebaseStorage, {
-  get(_, prop) {
-    if (!_storage) {
-      _storage = getStorage(initFirebase());
-    }
-    return (_storage as unknown as Record<string | symbol, unknown>)[prop];
-  },
-});
+export const storage: FirebaseStorage = typeof window !== 'undefined' ? getStorage(getApp()) : ({} as FirebaseStorage);
