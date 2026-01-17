@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Timestamp } from 'firebase/firestore';
 import type { DetailsSectionProps } from './types';
 import { SOURCE_LABELS } from '@/types';
@@ -14,6 +15,8 @@ import {
   User,
   Tag,
   Clock,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 
 // Field row component
@@ -44,6 +47,8 @@ export function DetailsSection({
   onDueDateChange,
   onClosedAtChange,
 }: DetailsSectionProps) {
+  const [showDetails, setShowDetails] = useState(true);
+
   return (
     <div className="p-6 max-w-3xl">
       {/* Quick Info Row */}
@@ -65,8 +70,14 @@ export function DetailsSection({
 
       {/* Details Section */}
       <div className="mb-8">
-        <h3 className="text-sm font-medium mb-3">Details</h3>
-        <div className="space-y-0">
+        <button
+          onClick={() => setShowDetails(!showDetails)}
+          className="flex items-center gap-2 text-sm font-medium mb-3 hover:text-primary transition-colors cursor-pointer w-full text-left"
+        >
+          {showDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+          Details
+        </button>
+        {showDetails && <div className="space-y-0">
           <FieldRow icon={Phone} label="Phone">
             <EditableText
               value={complaint.complainantPhone}
@@ -130,7 +141,7 @@ export function DetailsSection({
               />
             </div>
           </div>
-        </div>
+        </div>}
       </div>
     </div>
   );

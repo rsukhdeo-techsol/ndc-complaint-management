@@ -56,6 +56,7 @@ import {
   XIcon,
   ArrowUpDown,
   ChevronDown,
+  ChevronUp,
 } from 'lucide-react';
 
 interface ComplaintDetailPanelProps {
@@ -221,6 +222,7 @@ export function ComplaintDetailPanel({
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editingCommentContent, setEditingCommentContent] = useState('');
   const [attachmentSortOrder, setAttachmentSortOrder] = useState<'newest' | 'oldest'>('newest');
+  const [showDetails, setShowDetails] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { getStatusById } = useStatusConfig();
 
@@ -514,7 +516,7 @@ export function ComplaintDetailPanel({
       <div className="flex flex-1 overflow-hidden min-h-0">
         {/* Left Side - Details */}
         <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-          <ScrollArea className="flex-1">
+          <ScrollArea className="flex-1 h-full">
             <div className="p-6 max-w-3xl">
               {/* Quick Info Row */}
               <div className="flex items-center gap-6 mb-6 text-sm text-muted-foreground">
@@ -535,8 +537,14 @@ export function ComplaintDetailPanel({
 
               {/* Details Section */}
               <div className="mb-8">
-                <h3 className="text-sm font-medium mb-3">Details</h3>
-                <div className="space-y-0">
+                <button
+                  onClick={() => setShowDetails(!showDetails)}
+                  className="flex items-center gap-2 text-sm font-medium mb-3 hover:text-primary transition-colors cursor-pointer w-full text-left"
+                >
+                  {showDetails ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+                  Details
+                </button>
+                {showDetails && <div className="space-y-0">
                   <FieldRow icon={Phone} label="Phone">
                     <EditableText
                       value={complaint.complainantPhone}
@@ -600,7 +608,7 @@ export function ComplaintDetailPanel({
                       />
                     </div>
                   </div>
-                </div>
+                </div>}
               </div>
 
               {/* Attachments Section */}
