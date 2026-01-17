@@ -4,7 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Complaint } from '@/types';
 import { getComplaints } from '@/lib/services';
 import { ComplaintsTable } from '@/components/ComplaintsTable';
-import { ComplaintDetailPanel } from '@/components/ComplaintDetailPanel';
+import { ComplaintDetailPanel } from '@/components/complaint-detail';
 import { AppShell } from '@/components/app-shell';
 import { Button } from '@/components/ui/button';
 import { NewComplaintDialog } from '@/components/NewComplaintDialog';

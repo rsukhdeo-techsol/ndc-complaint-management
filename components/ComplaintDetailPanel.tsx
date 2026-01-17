@@ -508,9 +508,9 @@ export function ComplaintDetailPanel({
       </div>
 
       {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex flex-1 overflow-hidden min-h-0">
         {/* Left Side - Details */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex-1 flex flex-col overflow-hidden min-h-0">
           <ScrollArea className="flex-1">
             <div className="p-6 max-w-3xl">
               {/* Quick Info Row */}
