@@ -12,6 +12,15 @@ const firebaseConfig = {
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
 };
 
+// Debug: Log Firebase config (only shows if values are present) - build timestamp: 2026-01-17
+if (typeof window !== 'undefined') {
+  console.log('Firebase config loaded:', {
+    hasApiKey: !!firebaseConfig.apiKey,
+    hasProjectId: !!firebaseConfig.projectId,
+    projectId: firebaseConfig.projectId,
+  });
+}
+
 // Collection names as constants
 export const COLLECTIONS = {
   COMPLAINTS: 'complaints',
@@ -39,7 +48,7 @@ function initFirebase(): FirebaseApp {
 // This ensures Firebase is only initialized when actually accessed
 export const app = new Proxy({} as FirebaseApp, {
   get(_, prop) {
-    return (initFirebase() as Record<string | symbol, unknown>)[prop];
+    return (initFirebase() as unknown as Record<string | symbol, unknown>)[prop];
   },
 });
 
@@ -48,7 +57,7 @@ export const db = new Proxy({} as Firestore, {
     if (!_db) {
       _db = getFirestore(initFirebase());
     }
-    return (_db as Record<string | symbol, unknown>)[prop];
+    return (_db as unknown as Record<string | symbol, unknown>)[prop];
   },
 });
 
@@ -57,6 +66,6 @@ export const storage = new Proxy({} as FirebaseStorage, {
     if (!_storage) {
       _storage = getStorage(initFirebase());
     }
-    return (_storage as Record<string | symbol, unknown>)[prop];
+    return (_storage as unknown as Record<string | symbol, unknown>)[prop];
   },
 });

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
+import dynamic from 'next/dynamic';
 import { Timestamp } from 'firebase/firestore';
 import type { Complaint, ComplaintStatus, Priority, TimelineEntry } from '@/types';
 import { STATUS_LABELS, SOURCE_LABELS, CATEGORY_LABELS } from '@/types';
@@ -10,9 +11,12 @@ import { updateComplaint, getTimeline, addComment, updateComment, uploadAttachme
 
 import Lightbox from 'yet-another-react-lightbox';
 import 'yet-another-react-lightbox/styles.css';
-import { Plyr } from 'plyr-react';
-// @ts-ignore
-import 'plyr/dist/plyr.css';
+
+// Dynamically import Plyr to avoid SSR issues with document
+const Plyr = dynamic(() => import('plyr-react').then(mod => mod.Plyr), { 
+  ssr: false,
+  loading: () => <div className="aspect-video bg-black/50 flex items-center justify-center"><span className="text-white">Loading player...</span></div>
+});
 
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -214,6 +218,12 @@ export function ComplaintDetailPanel({
   const [editingCommentContent, setEditingCommentContent] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { getStatusById } = useStatusConfig();
+
+  // Load plyr CSS on client side only
+  useEffect(() => {
+    // @ts-expect-error - CSS module import for styling
+    import('plyr/dist/plyr.css');
+  }, []);
 
   // Helper to get status name (supports both legacy and custom statuses)
   const getStatusName = (statusId: string | undefined): string => {

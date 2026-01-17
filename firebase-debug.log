@@ -1,0 +1,18 @@
+[debug] [2026-01-17T17:28:52.944Z] ----------------------------------------------------------------------
+[debug] [2026-01-17T17:28:52.947Z] Command:       C:\Program Files\nodejs\node.exe C:\Users\hp\AppData\Roaming\npm\node_modules\firebase-tools\lib\bin\firebase.js hosting:disable --site complaint-management-d2158
+[debug] [2026-01-17T17:28:52.947Z] CLI Version:   14.2.1
+[debug] [2026-01-17T17:28:52.947Z] Platform:      win32
+[debug] [2026-01-17T17:28:52.948Z] Node Version:  v22.17.1
+[debug] [2026-01-17T17:28:52.948Z] Time:          Sat Jan 17 2026 13:28:52 GMT-0400 (Guyana Time)
+[debug] [2026-01-17T17:28:52.948Z] ----------------------------------------------------------------------
+[debug] 
+[debug] [2026-01-17T17:28:53.297Z] > command requires scopes: ["email","openid","https://www.googleapis.com/auth/cloudplatformprojects.readonly","https://www.googleapis.com/auth/firebase","https://www.googleapis.com/auth/cloud-platform"]
+[debug] [2026-01-17T17:28:53.298Z] > authorizing via signed-in user (rsukhdeo@techsolgy.com)
+[debug] [2026-01-17T17:28:53.298Z] [iam] checking project complaint-management-d2158 for permissions ["firebase.projects.get","firebasehosting.sites.update"]
+[debug] [2026-01-17T17:28:53.299Z] Checked if tokens are valid: true, expires at: 1768672131523
+[debug] [2026-01-17T17:28:53.300Z] Checked if tokens are valid: true, expires at: 1768672131523
+[debug] [2026-01-17T17:28:53.301Z] >>> [apiv2][query] POST https://cloudresourcemanager.googleapis.com/v1/projects/complaint-management-d2158:testIamPermissions [none]
+[debug] [2026-01-17T17:28:53.301Z] >>> [apiv2][(partial)header] POST https://cloudresourcemanager.googleapis.com/v1/projects/complaint-management-d2158:testIamPermissions x-goog-quota-user=projects/complaint-management-d2158
+[debug] [2026-01-17T17:28:53.301Z] >>> [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/complaint-management-d2158:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
+[debug] [2026-01-17T17:28:53.999Z] <<< [apiv2][status] POST https://cloudresourcemanager.googleapis.com/v1/projects/complaint-management-d2158:testIamPermissions 200
+[debug] [2026-01-17T17:28:53.999Z] <<< [apiv2][body] POST https://cloudresourcemanager.googleapis.com/v1/projects/complaint-management-d2158:testIamPermissions {"permissions":["firebase.projects.get","firebasehosting.sites.update"]}
