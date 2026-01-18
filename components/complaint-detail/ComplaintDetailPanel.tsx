@@ -269,6 +269,7 @@ export function ComplaintDetailPanel({
                 <DetailsSection
                   complaint={complaint}
                   onFieldUpdate={handleFieldUpdate}
+                  onStatusChange={handleStatusChange}
                   onPriorityChange={handlePriorityChange}
                   onDueDateChange={handleDueDateChange}
                   onClosedAtChange={handleClosedAtChange}

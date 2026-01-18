@@ -18,6 +18,7 @@ export interface ComplaintHeaderProps {
 export interface DetailsSectionProps {
   complaint: Complaint;
   onFieldUpdate: (field: string, value: string) => Promise<void>;
+  onStatusChange: (status: string) => Promise<void>;
   onPriorityChange: (priority: Priority) => Promise<void>;
   onDueDateChange: (date: Date | undefined) => Promise<void>;
   onClosedAtChange: (date: Date | undefined) => Promise<void>;

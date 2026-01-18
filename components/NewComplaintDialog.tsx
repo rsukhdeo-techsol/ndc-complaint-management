@@ -51,6 +51,7 @@ import {
 const complaintSchema = z.object({
   complainantName: z.string().min(2, 'Name is required'),
   complainantPhone: z.string().optional().or(z.literal('')),
+  complainantMobile: z.string().optional().or(z.literal('')),
   description: z.string().min(10, 'Description is required'),
   location: z.string().optional().or(z.literal('')),
   respondentName: z.string().optional().or(z.literal('')),
@@ -96,6 +97,7 @@ export function NewComplaintDialog({
     defaultValues: {
       complainantName: '',
       complainantPhone: '',
+      complainantMobile: '',
       description: '',
       location: '',
       respondentName: '',
@@ -153,6 +155,7 @@ export function NewComplaintDialog({
       await createComplaint({
         complainantName: values.complainantName,
         complainantPhone: values.complainantPhone || undefined,
+        complainantMobile: values.complainantMobile || undefined,
         // Auto-generate title from description (first 50 chars)
         title:
           values.description.substring(0, 50) +
@@ -236,6 +239,20 @@ export function NewComplaintDialog({
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Contact Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="e.g. +592 xxx xxxx" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="complainantMobile"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Mobile</FormLabel>
                     <FormControl>
                       <Input placeholder="e.g. +592 xxx xxxx" {...field} />
                     </FormControl>

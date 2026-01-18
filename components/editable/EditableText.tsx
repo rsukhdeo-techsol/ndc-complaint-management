@@ -9,6 +9,8 @@ interface EditableTextProps {
   value: string | undefined;
   onSave: (value: string) => Promise<void>;
   placeholder?: string;
+  /** Optional formatted display when not editing */
+  displayValue?: React.ReactNode;
   /** Display when empty and not editing */
   emptyDisplay?: React.ReactNode;
   className?: string;
@@ -18,6 +20,7 @@ export function EditableText({
   value,
   onSave,
   placeholder = 'Enter value...',
+  displayValue,
   emptyDisplay = <span className="text-muted-foreground">—</span>,
   className,
 }: EditableTextProps) {
@@ -105,7 +108,9 @@ export function EditableText({
 
   return (
     <div className={cn('group flex items-center gap-2', className)}>
-      <span className="flex-1">{value || emptyDisplay}</span>
+      <span className="flex-1">
+        {displayValue ?? (value || emptyDisplay)}
+      </span>
       <button
         onClick={() => setIsEditing(true)}
         className="p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"

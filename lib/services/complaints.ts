@@ -83,6 +83,7 @@ export async function createComplaint(input: CreateComplaintInput): Promise<Comp
 
     // Only add optional fields if they have values
     if (input.complainantPhone) complaintData.complainantPhone = input.complainantPhone;
+    if (input.complainantMobile) complaintData.complainantMobile = input.complainantMobile;
     if (input.complainantEmail) complaintData.complainantEmail = input.complainantEmail;
     if (input.complainantAddress) complaintData.complainantAddress = input.complainantAddress;
     if (input.category) complaintData.category = input.category;

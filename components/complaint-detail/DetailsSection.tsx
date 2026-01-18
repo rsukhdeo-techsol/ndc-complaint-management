@@ -3,19 +3,24 @@
 import { useState } from 'react';
 import type { DetailsSectionProps } from './types';
 import { SOURCE_LABELS } from '@/types';
-import { formatDate } from '@/lib/utils';
+import { formatDate, formatGuyanaPhone } from '@/lib/utils';
 import { DatePickerPopover } from '@/components/DatePickerPopover';
-import { PrioritySelect, EditableText, EditableTextarea, CategorySelect } from '@/components/editable';
+import { StatusPopover } from '@/components/StatusPopover';
+import { PriorityPopover } from '@/components/PriorityPopover';
+import { EditableText, EditableTextarea, CategorySelect } from '@/components/editable';
 import {
   Calendar,
   CalendarCheck,
   Phone,
+  Smartphone,
   MapPin,
   User,
   Tag,
   Clock,
   ChevronUp,
   ChevronDown,
+  CircleDot,
+  Flag,
 } from 'lucide-react';
 
 // Field row component
@@ -42,22 +47,17 @@ function FieldRow({
 export function DetailsSection({
   complaint,
   onFieldUpdate,
+  onStatusChange,
   onPriorityChange,
   onDueDateChange,
   onClosedAtChange,
 }: DetailsSectionProps) {
   const [showDetails, setShowDetails] = useState(true);
+  const formattedPhone = formatGuyanaPhone(complaint.complainantPhone);
+  const formattedMobile = formatGuyanaPhone(complaint.complainantMobile);
 
   return (
     <div className="p-6 max-w-3xl">
-      {/* Quick Info Row */}
-      <div className="flex items-center gap-6 mb-6 text-sm text-muted-foreground">
-        <PrioritySelect 
-          value={complaint.priority} 
-          onChange={onPriorityChange}
-        />
-      </div>
-
       {/* Description */}
       <div className="mb-8 p-4 rounded-lg bg-muted/30 border">
         <EditableTextarea
@@ -77,11 +77,32 @@ export function DetailsSection({
           Details
         </button>
         {showDetails && <div className="space-y-0">
+          <FieldRow icon={CircleDot} label="Status">
+            <StatusPopover
+              value={complaint.status}
+              onChange={onStatusChange}
+            />
+          </FieldRow>
+          <FieldRow icon={Flag} label="Priority">
+            <PriorityPopover
+              value={complaint.priority}
+              onChange={onPriorityChange}
+            />
+          </FieldRow>
           <FieldRow icon={Phone} label="Phone">
             <EditableText
               value={complaint.complainantPhone}
               onSave={(value) => onFieldUpdate('complainantPhone', value)}
               placeholder="Enter phone number..."
+              displayValue={formattedPhone ? `🇬🇾 ${formattedPhone}` : undefined}
+            />
+          </FieldRow>
+          <FieldRow icon={Smartphone} label="Mobile">
+            <EditableText
+              value={complaint.complainantMobile}
+              onSave={(value) => onFieldUpdate('complainantMobile', value)}
+              placeholder="Enter mobile number..."
+              displayValue={formattedMobile ? `🇬🇾 ${formattedMobile}` : undefined}
             />
           </FieldRow>
           <FieldRow icon={Tag} label="Source">

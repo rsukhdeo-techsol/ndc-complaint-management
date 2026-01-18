@@ -39,6 +39,8 @@ export function PrioritySelect({
           border-0 bg-transparent p-0 focus:ring-0 cursor-pointer
           ${isCompact ? 'h-7 w-full px-1' : 'w-auto h-auto'}
         `}
+        onClick={(e) => e.stopPropagation()}
+        onPointerDown={(e) => e.stopPropagation()}
       >
         {isCompact ? (
           // Compact/badge style for tables

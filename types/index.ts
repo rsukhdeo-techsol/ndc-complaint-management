@@ -135,6 +135,7 @@ export interface Complaint {
   // Complainant info
   complainantName: string;
   complainantPhone?: string;
+  complainantMobile?: string;
   complainantEmail?: string;
   complainantAddress?: string;
 
@@ -205,6 +206,7 @@ export interface TimelineEntry {
 export interface CreateComplaintInput {
   complainantName: string;
   complainantPhone?: string;
+  complainantMobile?: string;
   complainantEmail?: string;
   complainantAddress?: string;
   title: string;
@@ -224,6 +226,7 @@ export interface CreateComplaintInput {
 export interface UpdateComplaintInput {
   complainantName?: string;
   complainantPhone?: string;
+  complainantMobile?: string;
   complainantEmail?: string;
   complainantAddress?: string;
   title?: string;

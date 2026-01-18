@@ -2,7 +2,6 @@
 
 import type { ComplaintHeaderProps } from './types';
 import { Button } from '@/components/ui/button';
-import { StatusSelect } from '@/components/editable';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -29,10 +28,6 @@ export function ComplaintHeader({
         <span className="text-xl font-bold">
           {complaint.complainantName}
         </span>
-        <StatusSelect 
-          value={complaint.status} 
-          onChange={onStatusChange}
-        />
       </div>
       <div className="flex items-center gap-2">
         <AlertDialog>

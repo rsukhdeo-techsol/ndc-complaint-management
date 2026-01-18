@@ -40,6 +40,29 @@ export function formatDateTime(date: Date): string {
 }
 
 /**
+ * Format a Guyana phone number for display
+ * Output: +592 XXX-XXXX
+ */
+export function formatGuyanaPhone(value?: string | null): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+
+  const digits = trimmed.replace(/\D/g, '');
+  let local = digits;
+
+  if (digits.startsWith('592')) {
+    local = digits.slice(3);
+  }
+
+  if (local.length === 7) {
+    return `+592 ${local.slice(0, 3)}-${local.slice(3)}`;
+  }
+
+  return trimmed;
+}
+
+/**
  * Format file size for display
  */
 export function formatFileSize(bytes: number): string {
