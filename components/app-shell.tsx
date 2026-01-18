@@ -16,12 +16,12 @@ export function AppShell({ children, onNavigate }: AppShellProps) {
   const [open, setOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-background">
-      <aside className="hidden w-64 shrink-0 border-r bg-sidebar text-sidebar-foreground md:flex">
+    <div className="flex h-screen min-h-0 overflow-hidden bg-background text-foreground">
+      <aside className="hidden h-full w-64 shrink-0 flex-col border-r bg-sidebar text-sidebar-foreground md:flex">
         <AppSidebar onNavigate={onNavigate} />
       </aside>
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <div className="md:hidden">
           <Sheet open={open} onOpenChange={setOpen}>
             <AppHeader onOpenSidebar={() => setOpen(true)} />
@@ -31,11 +31,15 @@ export function AppShell({ children, onNavigate }: AppShellProps) {
           </Sheet>
         </div>
 
-        <div className="hidden md:block">
+        <div className="hidden md:flex flex-none">
           <AppHeader />
         </div>
 
-        <main className="min-w-0 flex-1 p-4 md:p-6">{children}</main>
+        <div className="flex-1 overflow-hidden">
+          <div className="h-full min-h-0 overflow-y-auto p-4 md:p-6 custom-scrollbar">
+            {children}
+          </div>
+        </div>
       </div>
     </div>
   );

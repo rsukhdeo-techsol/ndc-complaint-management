@@ -28,6 +28,7 @@ import {
   StatusChangeInput,
   AssignmentInput,
   AddAttachmentInput,
+  RemoveAttachmentInput,
   STATUS_LABELS,
 } from '@/types';
 import { generateReferenceNumber } from '../utils';
@@ -391,6 +392,45 @@ export async function addAttachment(
     id: docRef.id,
     ...timelineEntry,
   } as TimelineEntry;
+}
+
+/**
+ * Remove an attachment from complaint and add deletion timeline entry
+ */
+export async function removeAttachment(
+  complaintId: string,
+  input: RemoveAttachmentInput
+): Promise<void> {
+  const complaintRef = doc(db, COLLECTIONS.COMPLAINTS, complaintId);
+  const now = Timestamp.now();
+  
+  // Get current complaint data to remove specific attachment
+  const complaintSnap = await getDoc(complaintRef);
+  if (!complaintSnap.exists()) {
+    throw new Error('Complaint not found');
+  }
+  
+  const complaint = complaintSnap.data() as Complaint;
+  const updatedAttachments = (complaint.attachments || []).filter(
+    att => att.storagePath !== input.storagePath
+  );
+  
+  // Update complaint's attachments array
+  await updateDoc(complaintRef, {
+    updatedAt: now,
+    attachments: updatedAttachments,
+  });
+  
+  // Add timeline entry for deletion
+  const timelineRef = collection(complaintRef, COLLECTIONS.TIMELINE);
+  const timelineEntry: Omit<TimelineEntry, 'id'> = {
+    type: 'attachment_removed',
+    fileName: input.fileName,
+    createdAt: now,
+    createdBy: input.removedBy,
+  };
+  
+  await addDoc(timelineRef, timelineEntry);
 }
 
 /**

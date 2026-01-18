@@ -26,12 +26,13 @@ export interface DetailsSectionProps {
 export interface AttachmentsSectionProps {
   complaint: Complaint;
   onUpload: (files: FileList | null) => Promise<void>;
+  onDelete: (storagePath: string, fileName: string) => Promise<void>;
   isUploading: boolean;
   uploadProgress: { [key: string]: { name: string; progress: number; size: number } };
+  onOpenVideoPlayer: (url: string) => void;
 }
 
 export interface ActivityPanelProps {
-  complaintId: string;
   timeline: TimelineEntry[];
   isLoadingTimeline: boolean;
   onAddComment: (content: string) => Promise<void>;

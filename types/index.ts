@@ -30,7 +30,7 @@ export type Priority = 'low' | 'medium' | 'high' | 'urgent';
 /**
  * Timeline event types
  */
-export type TimelineEventType = 'comment' | 'status_change' | 'attachment' | 'assignment';
+export type TimelineEventType = 'comment' | 'status_change' | 'attachment' | 'attachment_removed' | 'assignment';
 
 // ============================================
 // STATUS LABELS & CONFIGS (for UI)
@@ -119,6 +119,8 @@ export interface AttachmentData {
   fileType: string;          // MIME type
   fileSize: number;          // Bytes
   storagePath: string;       // Path in Firebase Storage for deletion
+  thumbnailUrl?: string;     // Lazy-loaded preview asset
+  thumbnailStoragePath?: string; // Storage path for generated thumbnail
 }
 
 /**
@@ -182,6 +184,7 @@ export interface TimelineEntry {
 
   // For attachments
   attachment?: AttachmentData;
+  fileName?: string; // For attachment_removed events
 
   // For assignments
   previousAssignee?: string;
@@ -264,6 +267,15 @@ export interface AssignmentInput {
 export interface AddAttachmentInput {
   attachment: AttachmentData;
   createdBy: string;
+}
+
+/**
+ * Data for removing attachment
+ */
+export interface RemoveAttachmentInput {
+  storagePath: string;
+  fileName: string;
+  removedBy: string;
 }
 
 // ============================================

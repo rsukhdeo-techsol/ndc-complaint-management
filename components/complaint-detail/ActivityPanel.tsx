@@ -6,7 +6,6 @@ import type { ActivityPanelProps } from './types';
 import { formatDate } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Textarea } from '@/components/ui/textarea';
 import {
   AlertDialog,
@@ -81,7 +80,7 @@ function ActivityItem({
                     <Trash2 className="h-3.5 w-3.5" />
                   </button>
                 </AlertDialogTrigger>
-                <AlertDialogContent>
+                <AlertDialogContent className="rounded-md">
                   <AlertDialogHeader>
                     <AlertDialogTitle>Delete Comment</AlertDialogTitle>
                     <AlertDialogDescription>
@@ -136,7 +135,6 @@ function ActivityItem({
 }
 
 export function ActivityPanel({
-  complaintId,
   timeline,
   isLoadingTimeline,
   onAddComment,
@@ -161,6 +159,8 @@ export function ActivityPanel({
         return '';
       case 'attachment':
         return `added attachment: ${entry.attachment?.fileName}`;
+      case 'attachment_removed':
+        return `removed attachment: ${entry.fileName ?? entry.attachment?.fileName ?? 'file'}`;
       default:
         return '';
     }
@@ -179,20 +179,20 @@ export function ActivityPanel({
     setEditingCommentContent('');
   };
 
+  const commentEntries = timeline.filter(entry => entry.type === 'comment');
+
   return (
-    <div className="w-[360px] border-l flex flex-col bg-muted/10 min-h-0">
+    <div className="w-full md:w-[360px] border-t md:border-t-0 md:border-l flex flex-col bg-muted/10 min-h-0 flex-shrink-0">
       <div className="px-4 py-3 border-b flex-shrink-0">
         <h3 className="font-medium">Comments</h3>
       </div>
       
-      <ScrollArea className="flex-1 min-h-0">
+      <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
         <div className="px-4 py-2">
-          {timeline.filter(e => e.type === 'comment').length === 0 && !isLoadingTimeline ? (
+          {commentEntries.length === 0 && !isLoadingTimeline ? (
             <p className="text-sm text-muted-foreground py-4 text-center">No comments yet</p>
           ) : (
-            timeline
-              .filter(entry => entry.type === 'comment')
-              .map((entry) => (
+            commentEntries.map((entry) => (
               <ActivityItem 
                 key={entry.id}
                 user={entry.createdBy === 'system' ? 'System' : entry.createdBy}
@@ -217,7 +217,7 @@ export function ActivityPanel({
             ))
           )}
         </div>
-      </ScrollArea>
+      </div>
 
       {/* Comment Input */}
       <div className="p-4 border-t bg-background flex-shrink-0">

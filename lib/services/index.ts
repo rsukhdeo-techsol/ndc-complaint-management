@@ -11,6 +11,7 @@ export {
   addComment,
   updateComment,
   addAttachment,
+  removeAttachment,
   deleteTimelineEntry,
 } from './complaints';
 

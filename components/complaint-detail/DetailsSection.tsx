@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import { Timestamp } from 'firebase/firestore';
 import type { DetailsSectionProps } from './types';
 import { SOURCE_LABELS } from '@/types';
 import { formatDate } from '@/lib/utils';

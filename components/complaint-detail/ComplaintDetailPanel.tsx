@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Timestamp } from 'firebase/firestore';
-import type { Complaint, Priority, TimelineEntry } from '@/types';
+import type { Priority, TimelineEntry } from '@/types';
 import { STATUS_LABELS } from '@/types';
 import { useStatusConfig } from '@/lib/contexts/StatusContext';
 import { 
@@ -11,11 +11,12 @@ import {
   addComment, 
   updateComment, 
   uploadAttachmentWithProgress, 
-  addAttachment, 
+  addAttachment,
+  removeAttachment,
+  deleteAttachment,
   deleteComplaint, 
   deleteTimelineEntry 
 } from '@/lib/services';
-import { ScrollArea } from '@/components/ui/scroll-area';
 
 import type { ComplaintDetailPanelProps, UploadProgress } from './types';
 import { ComplaintHeader } from './ComplaintHeader';
@@ -30,7 +31,7 @@ export function ComplaintDetailPanel({
   onClose,
   onUpdate 
 }: ComplaintDetailPanelProps) {
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [, setIsUpdating] = useState(false);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [isLoadingTimeline, setIsLoadingTimeline] = useState(false);
   const [videoPlayerOpen, setVideoPlayerOpen] = useState(false);
@@ -227,6 +228,26 @@ export function ComplaintDetailPanel({
     setCurrentVideoUrl(null);
   };
 
+  const handleDeleteAttachment = async (storagePath: string, fileName: string) => {
+    try {
+      // Delete from storage
+      await deleteAttachment(storagePath);
+      
+      // Update Firestore and add timeline entry
+      await removeAttachment(complaint.id, {
+        storagePath,
+        fileName,
+        removedBy: 'current-user', // TODO: Get from auth
+      });
+      
+      await refreshTimeline();
+      onUpdate?.();
+    } catch (error) {
+      console.error('Error deleting attachment:', error);
+      throw error;
+    }
+  };
+
   return (
     <div className="fixed inset-0 z-50 md:left-64 bg-background flex flex-col">
       {/* Header */}
@@ -239,30 +260,34 @@ export function ComplaintDetailPanel({
       />
 
       {/* Main Content */}
-      <div className="flex flex-1 overflow-hidden min-h-0">
+      <div className="flex flex-1 overflow-hidden min-h-0 bg-background">
         {/* Left Side - Details & Attachments */}
-        <div className="flex-1 flex flex-col overflow-hidden min-h-0">
-          <ScrollArea className="flex-1">
-            <DetailsSection
-              complaint={complaint}
-              onFieldUpdate={handleFieldUpdate}
-              onPriorityChange={handlePriorityChange}
-              onDueDateChange={handleDueDateChange}
-              onClosedAtChange={handleClosedAtChange}
-            />
-            <AttachmentsSection
-              complaint={complaint}
-              onUpload={handleFileUpload}
-              isUploading={isUploading}
-              uploadProgress={uploadProgress}
-              onOpenVideoPlayer={handleOpenVideoPlayer}
-            />
-          </ScrollArea>
-        </div>
+        <section className="flex-1 min-w-0 border-border/40 md:border-r">
+          <div className="h-full flex flex-col">
+            <div className="flex-1 overflow-y-auto custom-scrollbar min-h-0">
+              <div style={{ contentVisibility: 'auto' }}>
+                <DetailsSection
+                  complaint={complaint}
+                  onFieldUpdate={handleFieldUpdate}
+                  onPriorityChange={handlePriorityChange}
+                  onDueDateChange={handleDueDateChange}
+                  onClosedAtChange={handleClosedAtChange}
+                />
+                <AttachmentsSection
+                  complaint={complaint}
+                  onUpload={handleFileUpload}
+                  onDelete={handleDeleteAttachment}
+                  isUploading={isUploading}
+                  uploadProgress={uploadProgress}
+                  onOpenVideoPlayer={handleOpenVideoPlayer}
+                />
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* Right Side - Activity & Comments */}
         <ActivityPanel
-          complaintId={complaint.id}
           timeline={timeline}
           isLoadingTimeline={isLoadingTimeline}
           onAddComment={handleAddComment}

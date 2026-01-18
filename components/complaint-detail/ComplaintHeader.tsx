@@ -41,7 +41,7 @@ export function ComplaintHeader({
               <Trash2 className="h-5 w-5" />
             </Button>
           </AlertDialogTrigger>
-          <AlertDialogContent>
+          <AlertDialogContent className="rounded-md">
             <AlertDialogHeader>
               <AlertDialogTitle>Delete Complaint</AlertDialogTitle>
               <AlertDialogDescription>

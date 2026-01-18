@@ -1,0 +1,1 @@
+export { generateAttachmentThumbnail } from './thumbnails';

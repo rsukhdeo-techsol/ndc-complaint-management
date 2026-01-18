@@ -1,28 +1,40 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import type { Complaint } from '@/types';
+import Image from 'next/image';
 import type { AttachmentsSectionProps } from './types';
 import { formatDate, formatFileSize } from '@/lib/utils';
 import Lightbox from 'yet-another-react-lightbox';
 import 'yet-another-react-lightbox/styles.css';
-import { Paperclip, Upload, Play, ArrowUpDown } from 'lucide-react';
+import { Paperclip, Upload, Play, ArrowUpDown, Trash2, Loader2 } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
-interface AttachmentsSectionWithLightboxProps extends AttachmentsSectionProps {
-  onOpenVideoPlayer: (url: string) => void;
-}
+const IMAGE_BLUR_DATA_URL =
+  'data:image/gif;base64,R0lGODlhAQABAIABAP///wAAACwAAAAAAQABAAACAkQBADs=';
 
 export function AttachmentsSection({
   complaint,
   onUpload,
+  onDelete,
   isUploading,
   uploadProgress,
   onOpenVideoPlayer,
-}: AttachmentsSectionWithLightboxProps) {
+}: AttachmentsSectionProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest'>('newest');
+  const [deletingPaths, setDeletingPaths] = useState<Set<string>>(new Set());
+  const [pendingDelete, setPendingDelete] = useState<{ path: string; fileName: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleDragOver = (e: React.DragEvent) => {
@@ -44,13 +56,31 @@ export function AttachmentsSection({
     onUpload(e.dataTransfer.files);
   };
 
+  const handleDelete = async (storagePath: string, fileName: string) => {
+    if (deletingPaths.has(storagePath)) return;
+
+    setDeletingPaths(prev => new Set(prev).add(storagePath));
+    try {
+      await onDelete(storagePath, fileName);
+    } catch (error) {
+      console.error('Failed to delete attachment', error);
+      alert('Failed to delete attachment. Please try again.');
+    } finally {
+      setDeletingPaths(prev => {
+        const next = new Set(prev);
+        next.delete(storagePath);
+        return next;
+      });
+    }
+  };
+
   // Get sorted attachments
   const sortedAttachments = complaint.attachments 
     ? (sortOrder === 'newest' ? [...complaint.attachments].reverse() : complaint.attachments)
     : [];
 
   return (
-    <div className="px-6 pb-6">
+    <div className="px-6 pb-12">
       <div className="flex items-center justify-between mb-3">
         <h3 className="text-sm font-medium">
           Attachments
@@ -132,6 +162,7 @@ export function AttachmentsSection({
             {sortedAttachments.map((attachment, idx) => {
               const isImage = attachment.fileType.startsWith('image/');
               const isVideo = attachment.fileType.startsWith('video/');
+              const previewUrl = attachment.thumbnailUrl || attachment.fileUrl;
               
               // Calculate the index for lightbox (only image files)
               const imageIndex = sortedAttachments
@@ -139,42 +170,64 @@ export function AttachmentsSection({
                 .filter(a => a.fileType.startsWith('image/'))
                 .length;
               
+              const isDeleting = deletingPaths.has(attachment.storagePath);
+              
               return (
-                <div key={idx} className="group">
+                <div key={idx} className="group relative">
                   {isImage ? (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        setLightboxIndex(imageIndex);
-                        setLightboxOpen(true);
+                        if (!isDeleting) {
+                          setLightboxIndex(imageIndex);
+                          setLightboxOpen(true);
+                        }
                       }}
-                      className="w-full aspect-square rounded-lg overflow-hidden bg-muted border hover:border-primary transition-colors cursor-pointer"
+                      disabled={isDeleting}
+                      className="relative w-full aspect-square rounded-lg overflow-hidden bg-muted border hover:border-primary transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                      <img
-                        src={attachment.fileUrl}
+                      <Image
+                        src={previewUrl}
                         alt={attachment.fileName}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                        fill
+                        sizes="(max-width: 640px) 50vw, (max-width: 1024px) 25vw, 200px"
+                        placeholder="blur"
+                        blurDataURL={IMAGE_BLUR_DATA_URL}
+                        className="object-cover transition-transform duration-300 group-hover:scale-105"
                       />
+                      {isDeleting && (
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                          <div className="animate-spin rounded-full h-8 w-8 border-2 border-white border-t-transparent" />
+                        </div>
+                      )}
                     </button>
                   ) : isVideo ? (
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onOpenVideoPlayer(attachment.fileUrl);
+                        if (!isDeleting) {
+                          onOpenVideoPlayer(attachment.fileUrl);
+                        }
                       }}
-                      className="relative w-full aspect-square rounded-lg overflow-hidden bg-muted border hover:border-primary transition-colors cursor-pointer"
+                      disabled={isDeleting}
+                      className="relative w-full aspect-square rounded-lg overflow-hidden bg-muted border hover:border-primary transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <video
                         src={attachment.fileUrl}
                         className="w-full h-full object-cover"
                         muted
-                        preload="metadata"
+                        preload="none"
+                        poster={attachment.thumbnailUrl}
                       />
                       {/* Play button overlay */}
                       <div className="absolute inset-0 flex items-center justify-center bg-black/30 group-hover:bg-black/40 transition-colors">
-                        <div className="flex items-center justify-center w-12 h-12 rounded-full bg-white/90 group-hover:bg-white transition-colors">
-                          <Play className="h-6 w-6 text-gray-800 ml-1" />
-                        </div>
+                        {isDeleting ? (
+                          <div className="animate-spin rounded-full h-8 w-8 border-2 border-white border-t-transparent" />
+                        ) : (
+                          <div className="flex items-center justify-center w-12 h-12 rounded-full bg-white/90 group-hover:bg-white transition-colors">
+                            <Play className="h-6 w-6 text-gray-800 ml-1" />
+                          </div>
+                        )}
                       </div>
                     </button>
                   ) : (
@@ -182,12 +235,31 @@ export function AttachmentsSection({
                       href={attachment.fileUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      onClick={(e) => e.stopPropagation()}
-                      className="w-full aspect-square rounded-lg overflow-hidden bg-muted border flex items-center justify-center hover:border-primary transition-colors"
+                      onClick={(e) => {
+                        if (isDeleting) {
+                          e.preventDefault();
+                        }
+                        e.stopPropagation();
+                      }}
+                      className={`w-full aspect-square rounded-lg overflow-hidden bg-muted border flex items-center justify-center hover:border-primary transition-colors ${isDeleting ? 'opacity-50 cursor-not-allowed pointer-events-none' : ''}`}
                     >
                       <Paperclip className="h-8 w-8 text-muted-foreground" />
                     </a>
                   )}
+                  
+                  {/* Delete button */}
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setPendingDelete({ path: attachment.storagePath, fileName: attachment.fileName });
+                    }}
+                    disabled={isDeleting}
+                    className="absolute top-2 right-2 p-1.5 rounded-full bg-red-500 text-white opacity-0 group-hover:opacity-100 hover:bg-red-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                    title="Delete attachment"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </button>
+                  
                   <div className="mt-2">
                     <p className="text-sm font-medium truncate">{attachment.fileName}</p>
                     <p className="text-xs text-muted-foreground">
@@ -208,6 +280,39 @@ export function AttachmentsSection({
               .filter(a => a.fileType.startsWith('image/'))
               .map(a => ({ src: a.fileUrl, alt: a.fileName }))}
           />
+
+          <AlertDialog open={!!pendingDelete} onOpenChange={(open) => !open && setPendingDelete(null)}>
+            <AlertDialogContent className="rounded-lg">
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete attachment</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {pendingDelete ? `Are you sure you want to delete “${pendingDelete.fileName}”? This cannot be undone.` : ''}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                  onClick={async () => {
+                    if (!pendingDelete) return;
+                    const { path, fileName } = pendingDelete;
+                    setPendingDelete(null);
+                    await handleDelete(path, fileName);
+                  }}
+                  disabled={pendingDelete ? deletingPaths.has(pendingDelete.path) : false}
+                >
+                  {pendingDelete && deletingPaths.has(pendingDelete.path) ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Deleting
+                    </span>
+                  ) : (
+                    'Delete'
+                  )}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </>
       )}
     </div>

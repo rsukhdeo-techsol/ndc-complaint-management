@@ -81,8 +81,19 @@
   --radius-4xl: calc(var(--radius) + 16px);
 }
 
+html,
+body {
+  height: 100%;
+}
+
 body {
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
+  overflow: hidden;
+}
+
+#__next,
+body > div:first-of-type {
+  min-height: 100%;
 }
 
 /* Custom scrollbar for panels */

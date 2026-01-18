@@ -1,0 +1,30 @@
+{
+  "name": "ndc-complaint-management-functions",
+  "version": "0.1.0",
+  "private": true,
+  "main": "lib/index.js",
+  "scripts": {
+    "build": "tsc",
+    "clean": "rimraf lib",
+    "lint": "eslint --ext .ts src",
+    "serve": "npm run build && firebase emulators:start --only functions",
+    "deploy": "firebase deploy --only functions"
+  },
+  "engines": {
+    "node": "20"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.5.0",
+    "firebase-functions": "^5.1.1",
+    "sharp": "^0.33.2",
+    "uuid": "^11.0.3"
+  },
+  "devDependencies": {
+    "@types/node": "^20.16.5",
+    "@typescript-eslint/eslint-plugin": "^8.6.0",
+    "@typescript-eslint/parser": "^8.6.0",
+    "eslint": "^9.11.1",
+    "rimraf": "^5.0.7",
+    "typescript": "^5.6.3"
+  }
+}
